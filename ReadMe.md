@@ -39,6 +39,7 @@ This repository provides a fully modular, script‑driven environment. Everythin
 
 ## Project-Structure
 
+```bash
 PicoClaw-v1/
 ├── `.env.example`
 ├── `.gitignore`
@@ -66,6 +67,7 @@ PicoClaw-v1/
 │   └── `setup-ollama.sh`
 └── workspace/ # agent sandbox – all file operations go here
     └── agent-sessions/ # per‑agent isolated directories
+```
 
 ## Usage 
 
