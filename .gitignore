@@ -4,12 +4,15 @@
 
 # ----- Repo Specific -----
 
-picoclaw
 #runtime data (logs, workspace, pid, etc)
 logs/*.log
+logs/*.tar.gz
+picoclaw
 picoclaw.pid
 workspace/agent-sessions/*
 !workspace/agent-sessions/.gitkeep
+# any backup archives
+*.tar.gz
 #computer specific
 .DS_Store
 __pycache__/

@@ -39,35 +39,33 @@ This repository provides a fully modular, script‑driven environment. Everythin
 
 ## Project-Structure
 
-```bash
 PicoClaw-v1/
-├── .env.example
-├── .gitignore
-├── ReadMe.md # (You are here , hi !)
+├── `.env.example`
+├── `.gitignore`
+├──` ReadMe.md` # (You are here , hi !)
 ├── picoclaw # <- (binary, downloaded by setup.sh)
 ├── config/
-│   ├── config.json
+│   ├── `config.json`
 │   ├── agents/ # custom agents
-│   │   └── assistant.json
+│   │   └── `assistant.json`
 │   ├── gateways/ # (future) separate gateway configs
 │   └── skills/ # (future) user‑installed skills
 ├── docs/ # philosophy, roadmap, maintainer notes
-│   └── RepositoryVisionGoal.md
+│   └── `RepositoryVisionGoal.md`
 ├── logs/ # runtime logs (not tracked)
 ├── scripts/ # lifecycle management
-│   ├── setup.sh
-│   ├── start.sh
-│   ├── stop.sh
-│   ├── status.sh
-│   ├── update.sh
-│   ├── clean.sh
-│   ├── uninstall.sh
-│   ├── backup-agent-logs.sh
-│   ├── health-check.sh
-│   └── setup-ollama.sh
+│   ├── `setup.sh`
+│   ├── `start.sh`
+│   ├── `stop.sh`
+│   ├── `status.sh`
+│   ├── `update.sh`
+│   ├── `clean.sh`
+│   ├── `uninstall.sh`
+│   ├── `backup-agent-logs.sh`
+│   ├── `health-check.sh`
+│   └── `setup-ollama.sh`
 └── workspace/ # agent sandbox – all file operations go here
     └── agent-sessions/ # per‑agent isolated directories
-```
 
 ## Usage 
 
@@ -78,18 +76,21 @@ PicoClaw-v1/
 
 2. **Set up environment**
     ```bash
-    cp .env.example .env
-    # edit .env with your real API keys (Groq + Telegram)
+    # edit .env.example to .env with real API keys (Groq + Telegram)
     ```
 
 3. **Run the full setup**
     ```bash
+   chmod +x scripts/*.sh
    scripts/setup.sh
+   bash scripts/health-check.sh
    ```
 
 4. **Start the agent gateway**
     ```bash
     bash scripts/start.sh
+    bash scripts/status.sh
+    ```
 
 5. **Chat with your bot on Telegram**
 - Send /start or any message
