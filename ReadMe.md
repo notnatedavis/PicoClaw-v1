@@ -74,7 +74,6 @@ PicoClaw-v1/
 1. **Clone & enter**
    ```bash
    git clone <your-repo-url> && cd PicoClaw-v1
-    Set up environment
     ```
 
 2. **Set up environment**
@@ -86,7 +85,6 @@ PicoClaw-v1/
 3. **Run the full setup**
     ```bash
    scripts/setup.sh
-   Start the agent gateway
    ```
 
 4. **Start the agent gateway**
