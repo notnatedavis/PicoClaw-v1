@@ -17,4 +17,12 @@ rm -f picoclaw
 # Re-run the download part of setup
 bash scripts/setup.sh
 
-echo "==> Update complete. Restart with: bash scripts/start.sh"
+echo "==> Update complete"
+
+# (validate this is correct here)
+read -p "Restart the gateway now? (y/N): " RESTART
+if [[ "$RESTART" =~ ^[Yy]$ ]]; then
+    bash scripts/start.sh
+else
+    echo "Update complete. Start with: bash scripts/start.sh"
+fi

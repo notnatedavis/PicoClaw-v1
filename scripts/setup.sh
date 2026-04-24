@@ -24,10 +24,18 @@ mkdir -p logs workspace/agent-sessions/default
 if [ ! -f picoclaw ]; then
     echo "    Downloading PicoClaw binary..."
     # Detect OS and architecture
-    OS="linux"
-    ARCH="amd64"
-    # Basic detection (you can expand for ARM, macOS)
-    if [[ "$(uname -m)" == "aarch64" ]]; then ARCH="arm64"; fi
+    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
+    ARCH=$(uname -m)
+    case "$ARCH" in
+        x86_64)  ARCH="amd64" ;;
+        aarch64) ARCH="arm64" ;;
+        armv7l)  ARCH="armv7" ;;
+        i686)    ARCH="386" ;;
+        *)
+            echo "    [WARN] Unknown architecture $ARCH. Attempting generic download."
+            ARCH="amd64"
+            ;;
+    esac
     BIN_URL="https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-${OS}-${ARCH}"
     
     if command -v curl &> /dev/null; then
