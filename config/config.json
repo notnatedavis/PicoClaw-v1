@@ -1,1 +1,33 @@
-/* config/config.json */
+{
+  "model_list": {
+    "groq-mixtral": {
+      "provider": "groq",
+      "api_key": "${GROQ_API_KEY}",
+      "model": "mixtral-8x7b-32768"
+    }
+  },
+  "default_model": "groq-mixtral",
+  "gateways": {
+    "telegram": {
+      "enabled": true,
+      "token": "${TELEGRAM_BOT_TOKEN}",
+      "allowed_users": []
+    }
+  },
+  "tools": {
+    "web": {
+      "engine": "duckduckgo"
+    },
+    "filesystem": {
+      "root": "./workspace",
+      "allowed_operations": ["read", "write", "list"]
+    },
+    "shell": {
+      "confirmation_required": true
+    }
+  },
+  "agents": {
+    "assistant": "config/agents/assistant.json"
+  },
+  "log_level": "info"
+}

@@ -1,6 +1,8 @@
 # PicoClaw (v1)
 
-This is a repository containing PicoClaw , an ultra lightweight high performance agentic framework. A pseudo operating system for agents
+A complete, free, lightweight ai agent framework built around [PicoClaw](https://github.com/sipeed/picoclaw) – the ultra‑fast, single‑binary Go agent. This repository `PicoClaw (v1)` provides  everything needed to run personal assistant on old hardware, controlled via Telegram (or other messengers), powered entirely through free AI models (Groq, Ollama, etc.)
+
+--- 
 
 ## Table of Contents
 
@@ -11,9 +13,18 @@ This is a repository containing PicoClaw , an ultra lightweight high performance
 - [Configuration](#Configuration)
 - [Additional-Information](#Additional-Info)
 
+--- 
+
 ## Introduction
 
-PicoClaw itself is a standalone open source Go program (resource friendly) , acts as a central brain that connects chosen model via api key to real world with examples like (communication via messaging platforms, execute commands tools and skills on laptop, remember storing convo history in local SQLite db or writing to .md)
+PicoClaw acts as the central “brain” connecting a chosen AI model (Groq, Ollama, etc.) to the real world:
+- **Communicate** via Telegram, Discord, Slack, and more.
+- **Act** through built‑in tools: filesystem, shell, web search.
+- **Remember** conversations in a local SQLite database.
+
+This repository provides a fully modular, script‑driven environment. Everything is free, local‑first, and designed for minimal resource usage.
+
+--- 
 
 ## Features
 
@@ -24,39 +35,67 @@ PicoClaw itself is a standalone open source Go program (resource friendly) , act
 - Integrated tools ; bring foundationals and essentails to build up on or off of
 - Built in memory ; uses SQLite to remember conversations & context
 
+--- 
+
 ## Project-Structure
 
+```bash
 PicoClaw-v1/
-- `PicoClaw` (main executable binary)
-- config/
-    - `config.json` (core PicoClaw configuration)
-    - agents/ (optional custom agent definitions)
-        - `specific-role.json`
-    - gateways/ (optional separate config files for each chat platform)
-        - `telegram.json`
-        - `discord.json`
-        - `whatsapp.json`
-    - skills/ (optional user installed skills/plugins for PicoClaw)
-        - custom-skill/
-- workspace/
-    - agent-sessions/ (isolated folders for each agent's work)
-        - default/
-        - specific-agent/
-- scripts/ (utility scripts for automation)
-    - `backup-agent-logs.sh`
-    - `health-check.sh`
-    - `setup-ollama.sh`
-- logs/
-    - `picoclaw.log`
-    - `messaging-platform-gateway.log`
-- docs/
-    - `ReadMe.md`
-    - `other.md`
-- `.env` (storing sensitive data , api key)
+├── .env.example
+├── .gitignore
+├── ReadMe.md # (You are here , hi !)
+├── picoclaw # <- (binary, downloaded by setup.sh)
+├── config/
+│   ├── config.json
+│   ├── agents/ # custom agents
+│   │   └── assistant.json
+│   ├── gateways/ # (future) separate gateway configs
+│   └── skills/ # (future) user‑installed skills
+├── docs/ # philosophy, roadmap, maintainer notes
+│   └── RepositoryVisionGoal.md
+├── logs/ # runtime logs (not tracked)
+├── scripts/ # lifecycle management
+│   ├── setup.sh
+│   ├── start.sh
+│   ├── stop.sh
+│   ├── status.sh
+│   ├── update.sh
+│   ├── clean.sh
+│   ├── uninstall.sh
+│   ├── backup-agent-logs.sh
+│   ├── health-check.sh
+│   └── setup-ollama.sh
+└── workspace/ # agent sandbox – all file operations go here
+    └── agent-sessions/ # per‑agent isolated directories
+```
 
 ## Usage 
 
-1. git clone & cd in
+1. **Clone & enter**
+   ```bash
+   git clone <your-repo-url> && cd PicoClaw-v1
+    Set up environment
+    ```
+
+2. **Set up environment**
+    ```bash
+    cp .env.example .env
+    # edit .env with your real API keys (Groq + Telegram)
+    ```
+
+3. **Run the full setup**
+    ```bash
+   scripts/setup.sh
+   Start the agent gateway
+   ```
+
+4. **Start the agent gateway**
+    ```bash
+    bash scripts/start.sh
+
+5. **Chat with your bot on Telegram**
+- Send /start or any message
+- Use bash scripts/status.sh to see if it’s alive
 
 ## Configuration
 

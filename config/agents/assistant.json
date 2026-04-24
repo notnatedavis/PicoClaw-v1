@@ -1,0 +1,6 @@
+{
+  "name": "Assistant",
+  "system_prompt": "You are a helpful, concise AI assistant running on a personal server. Use tools when needed and always respond in plain, clear language.",
+  "tools": ["web", "filesystem", "shell"],
+  "memory": true
+}

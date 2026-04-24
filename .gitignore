@@ -2,5 +2,15 @@
 .env
 # (ascii art here)
 
-# Repo Specific
+# ----- Repo Specific -----
+
+picoclaw
+#runtime data (logs, workspace, pid, etc)
+logs/*.log
+picoclaw.pid
+workspace/agent-sessions/*
+!workspace/agent-sessions/.gitkeep
+#computer specific
+.DS_Store
 __pycache__/
+Thumbs.db
