@@ -1,5 +1,0 @@
-{
-  "token": "${TELEGRAM_BOT_TOKEN}",
-  "allowed_users": [],
-  "parse_mode": "Markdown"
-}

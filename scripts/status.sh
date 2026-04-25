@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/status.sh
 
-#!/usr/bin/env bash
 # Checks whether the PicoClaw gateway is running
 
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

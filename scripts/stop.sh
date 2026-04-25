@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/stop.sh
 
-#!/usr/bin/env bash
 # Gracefully stops the PicoClaw gateway process
 
 set -euo pipefail

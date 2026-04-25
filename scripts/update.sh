@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/update.sh
 
-#!/usr/bin/env bash
 # Stops running gateway, replaces the binary with the latest release,
 #    and (optionally) restarts
 
@@ -19,7 +19,6 @@ bash scripts/setup.sh
 
 echo "==> Update complete"
 
-# (validate this is correct here)
 read -p "Restart the gateway now? (y/N): " RESTART
 if [[ "$RESTART" =~ ^[Yy]$ ]]; then
     bash scripts/start.sh

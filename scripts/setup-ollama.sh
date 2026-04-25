@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/setup-ollama.sh
 
-#!/usr/bin/env bash
 # Installs Ollama and pulls a lightweight free model for local, offline use.
 # Requires curl and systemd (Linux)
 
@@ -12,7 +12,7 @@ echo "==> Installing Ollama (local AI runtime)..."
 if command -v ollama &> /dev/null; then
     echo "    Ollama already installed."
 else
-    curl -fsSL https://ollama.ai/install.sh | sh
+    curl -fsSL https://ollama.com/install.sh | sh
 fi
 
 echo "==> Pulling a small, free model (qwen2.5:1.5b) – about 1 GB..."

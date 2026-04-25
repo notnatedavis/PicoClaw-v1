@@ -49,22 +49,21 @@ PicoClaw-v1/
 │   ├── `config.json`
 │   ├── agents/ # custom agents
 │   │   └── `assistant.json`
-│   ├── gateways/ # (future) separate gateway configs
 │   └── skills/ # (future) user‑installed skills
 ├── docs/ # philosophy, roadmap, maintainer notes
 │   └── `RepositoryVisionGoal.md`
 ├── logs/ # runtime logs (not tracked)
 ├── scripts/ # lifecycle management
+│   ├── `backup-agent-logs.sh`
+│   ├── `clean.sh`
+│   ├── `health-check.sh`
+│   ├── `setup-ollama.sh`
 │   ├── `setup.sh`
 │   ├── `start.sh`
-│   ├── `stop.sh`
 │   ├── `status.sh`
-│   ├── `update.sh`
-│   ├── `clean.sh`
+│   ├── `stop.sh`
 │   ├── `uninstall.sh`
-│   ├── `backup-agent-logs.sh`
-│   ├── `health-check.sh`
-│   └── `setup-ollama.sh`
+│   └── `update.sh`
 └── workspace/ # agent sandbox – all file operations go here
     └── agent-sessions/ # per‑agent isolated directories
 ```

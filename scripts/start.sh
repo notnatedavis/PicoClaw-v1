@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/start.sh
 
-#!/usr/bin/env bash
 # Starts the PicoClaw gateway in background, sourcing API keys and setting the config path.
 
 set -euo pipefail

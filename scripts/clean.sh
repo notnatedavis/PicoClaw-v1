@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/clean.sh
 
-#!/usr/bin/env bash
 # Removes log files and empties workspace (keeps directory structure)
 # Does NOT remove configuration or the binary
 

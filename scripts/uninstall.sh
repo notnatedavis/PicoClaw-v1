@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/uninstall.sh
 
-#!/usr/bin/env bash
 # Completely removes the PicoClaw binary, configuration, and runtime data
 # Prompts for confirmation before deletion
 

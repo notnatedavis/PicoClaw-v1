@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/health-check.sh
 
-#!/usr/bin/env bash
 # Quick health checks: binary, .env presence, API reachability
 
 set -euo pipefail

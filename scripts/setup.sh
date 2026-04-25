@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/setup.sh
 
-#!/usr/bin/env bash
 # One‑command setup :
 #   - creates directories
 #   - copies .env.example → .env if missing
@@ -25,8 +25,8 @@ if [ ! -f .env ]; then
     fi
 fi
 
-# source .env so later steps can validate (set -a exports all variables)
-set -a; source .env; set +a
+# source .env robustly (ignore errors, export everything)
+set +e; set -a; source .env 2>/dev/null; set +a; set -e
 
 # 2. create required directories
 mkdir -p logs workspace/agent-sessions/default
@@ -63,12 +63,8 @@ else
     echo "    PicoClaw binary already present. Skipping download"
 fi
 
-# 5. ensure PICOCLAW_CONFIG is exported for the current and future shells
+# 5. ensure PICOCLAW_CONFIG is set for this session (no permanent shell rc changes)
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
-if ! grep -q "PICOCLAW_CONFIG" ~/.bashrc 2>/dev/null; then
-    echo "    Adding PICOCLAW_CONFIG to ~/.bashrc..."
-    echo "export PICOCLAW_CONFIG=\"$PICOCLAW_CONFIG\"" >> ~/.bashrc
-fi
 
 echo "==> Setup complete"
 echo "    Next: bash scripts/start.sh"

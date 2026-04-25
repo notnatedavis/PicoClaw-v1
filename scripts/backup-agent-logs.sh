@@ -1,6 +1,6 @@
+#!/usr/bin/env bash
 # scripts/backup-agent-logs.sh
 
-#!/usr/bin/env bash
 # Creates a gzipped tarball of the logs/ directory with a timestamp
 
 set -euo pipefail
