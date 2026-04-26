@@ -99,7 +99,7 @@ PicoClaw-v1/
 
 ## Configuration
 
-- `config/config.josn` holds the core , sets specific model, chat gateway, tools skills scripts etc to use. This lives in `/.picoclaw/config.json` by default but using (`PICOCLAW_CONFIG=./config/config.json`) makes it alot easier 
+- `config/config.json` holds the core , sets specific model, chat gateway, tools skills scripts etc to use. This lives in `/.picoclaw/config.json` by default but using (`PICOCLAW_CONFIG=./config/config.json`) makes it alot easier 
 
 ^ make sure this is implemented
 
