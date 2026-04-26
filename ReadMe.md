@@ -43,17 +43,17 @@ This repository provides a fully modular, script‑driven environment. Everythin
 PicoClaw-v1/
 ├── `.env.example`
 ├── `.gitignore`
-├──` ReadMe.md` # (You are here , hi !)
-├── picoclaw # <- (binary, downloaded by setup.sh)
+├──` ReadMe.md`        # (You are here , hi !)
+├── picoclaw           # <- (binary, downloaded by setup.sh)
 ├── config/
 │   ├── `config.json`
-│   ├── agents/ # custom agents
+│   ├── agents/        # custom agents
 │   │   └── `assistant.json`
-│   └── skills/ # (future) user‑installed skills
-├── docs/ # philosophy, roadmap, maintainer notes
+│   └── skills/        # (future) user‑installed skills
+├── docs/              # philosophy, roadmap, maintainer notes
 │   └── `RepositoryVisionGoal.md`
-├── logs/ # runtime logs (not tracked)
-├── scripts/ # lifecycle management
+├── logs/              # runtime logs (not tracked)
+├── scripts/           # lifecycle management
 │   ├── `backup-agent-logs.sh`
 │   ├── `clean.sh`
 │   ├── `health-check.sh`
@@ -64,7 +64,7 @@ PicoClaw-v1/
 │   ├── `stop.sh`
 │   ├── `uninstall.sh`
 │   └── `update.sh`
-└── workspace/ # agent sandbox – all file operations go here
+└── workspace/          # agent sandbox – all file operations go here
     └── agent-sessions/ # per‑agent isolated directories
 ```
 
