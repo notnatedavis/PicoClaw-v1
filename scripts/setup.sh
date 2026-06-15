@@ -4,7 +4,7 @@
 # One‑command setup :
 #   - creates directories
 #   - copies .env.example → .env if missing
-#   - downloads the PicoClaw binary
+#   - VERIFIES local picoclaw binary (does NOT download)
 #   - sets environment variables
 
 set -euo pipefail
@@ -34,36 +34,20 @@ mkdir -p logs workspace/agent-sessions/default
 # 3. remove stale PID if present (should not be running during setup)
 rm -f picoclaw.pid
 
-# 4. download the latest PicoClaw binary if not present
+# 4. verify local picoclaw binary (no download)
 if [ ! -f picoclaw ]; then
-    echo "    Downloading PicoClaw binary..."
-    # detect OS and architecture
-    OS=$(uname -s | tr '[:upper:]' '[:lower:]')
-    ARCH=$(uname -m)
-    case "$ARCH" in
-        x86_64)  ARCH="amd64" ;;
-        aarch64) ARCH="arm64" ;;
-        armv7l)  ARCH="armv7" ;;
-        i686)    ARCH="386" ;;
-        *)
-            echo "    [WARN] Unknown architecture $ARCH. Attempting generic download"
-            ARCH="amd64"
-            ;;
-    esac
-    BIN_URL="https://github.com/sipeed/picoclaw/releases/latest/download/picoclaw-${OS}-${ARCH}"
-
-    if command -v curl &> /dev/null; then
-        curl -L "$BIN_URL" -o picoclaw
-    else
-        wget -O picoclaw "$BIN_URL"
-    fi
-    chmod +x picoclaw
-    echo "    Binary downloaded and made executable"
-else
-    echo "    PicoClaw binary already present. Skipping download"
+    echo "  [ERROR] picoclaw binary not found."
+    exit 1
 fi
 
-# 5. ensure PICOCLAW_CONFIG is set for this session (no permanent shell rc changes)
+if [ ! -x picoclaw ]; then
+    echo "    picoclaw found but not executable. Making it executable..."
+    chmod +x picoclaw
+fi
+
+echo "    Local picoclaw binary verified."
+
+# 5. ensure PICOCLAW_CONFIG is set for this session
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
 
 echo "==> Setup complete"

@@ -2,7 +2,7 @@
 
 A complete, free, lightweight ai agent framework built around [PicoClaw](https://github.com/sipeed/picoclaw) – the ultra‑fast, single‑binary Go agent. This repository `PicoClaw (v1)` provides  everything needed to run personal assistant on old hardware, controlled via Telegram (or other messengers), powered entirely through free AI models (Groq, Ollama, etc.)
 
---- 
+---
 
 ## Table of Contents
 
@@ -11,9 +11,10 @@ A complete, free, lightweight ai agent framework built around [PicoClaw](https:/
 - [Project-Structure](#Project-Structure)
 - [Usage](#usage)
 - [Configuration](#Configuration)
+- [Troubleshooting](#troubleshooting)
 - [Additional-Information](#Additional-Info)
 
---- 
+---
 
 ## Introduction
 
@@ -24,7 +25,7 @@ PicoClaw acts as the central “brain” connecting a chosen AI model (Groq, Oll
 
 This repository provides a fully modular, script‑driven environment. Everything is free, local‑first, and designed for minimal resource usage.
 
---- 
+---
 
 ## Features
 
@@ -35,7 +36,7 @@ This repository provides a fully modular, script‑driven environment. Everythin
 - Integrated tools ; bring foundationals and essentails to build up on or off of
 - Built in memory ; uses SQLite to remember conversations & context
 
---- 
+---
 
 ## Project-Structure
 
@@ -83,7 +84,7 @@ PicoClaw-v1/
 3. **Run the full setup**
     ```bash
    chmod +x scripts/*.sh
-   scripts/setup.sh
+   bash scripts/setup.sh
    bash scripts/health-check.sh
    ```
 

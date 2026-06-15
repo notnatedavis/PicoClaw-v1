@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/health-check.sh
 
-# Quick health checks: binary, .env presence, API reachability
+# Quick health checks: binary, .env presence, API reachability, binary compatibility
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -15,6 +15,14 @@ if [ ! -f picoclaw ]; then
     ERRORS=$((ERRORS+1))
 else
     echo "[ OK ] picoclaw binary present"
+    # Check binary type for macOS
+    BINARY_TYPE=$(file -b picoclaw 2>/dev/null || echo "unknown")
+    if [[ "$BINARY_TYPE" == *"Mach-O"* ]]; then
+        echo "[ OK ] Binary is a macOS executable"
+    else
+        echo "[FAIL] Binary does not appear to be a macOS executable (type: $BINARY_TYPE)"
+        ERRORS=$((ERRORS+1))
+    fi
 fi
 
 # 2. .env availability and loading
