@@ -42,31 +42,32 @@ This repository provides a fully modular, script‑driven environment. Everythin
 
 ```bash
 PicoClaw-v1/
-├── `.env.example`
-├── `.gitignore`
-├──` ReadMe.md`        # (You are here , hi !)
-├── picoclaw           # <- (binary, downloaded by setup.sh)
 ├── config/
-│   ├── `config.json`
-│   ├── agents/        # custom agents
-│   │   └── `assistant.json`
-│   └── skills/        # (future) user‑installed skills
-├── docs/              # philosophy, roadmap, maintainer notes
-│   └── `RepositoryVisionGoal.md`
-├── logs/              # runtime logs (not tracked)
-├── scripts/           # lifecycle management
-│   ├── `backup-agent-logs.sh`
-│   ├── `clean.sh`
-│   ├── `health-check.sh`
-│   ├── `setup-ollama.sh`
-│   ├── `setup.sh`
-│   ├── `start.sh`
-│   ├── `status.sh`
-│   ├── `stop.sh`
-│   ├── `uninstall.sh`
-│   └── `update.sh`
-└── workspace/          # agent sandbox – all file operations go here
-    └── agent-sessions/ # per‑agent isolated directories
+│   ├── agents/ # custom agents
+│   │   └── assistant.json
+│   ├── skills/ # (future) user‑installed skills
+│   └── config.json
+├── docs/ # philosophy, roadmap, maintainer notes
+│   └── ToDo.md
+├── logs/ # runtime logs (not tracked)
+├── scripts/ # lifecycle management
+│   ├── backup-agent-logs.sh
+│   ├── clean.sh
+│   ├── health-check.sh
+│   ├── setup-ollama.sh
+│   ├── setup.sh
+│   ├── start.sh
+│   ├── status.sh
+│   ├── stop.sh
+│   ├── uninstall.sh
+│   └── update.sh
+├── workspace/ # agent sandbox – all file operations here
+│   └── agent-sessions/ # per‑agent isolated directories
+│       └── .gitkeep
+├── .env.example
+├── .gitignore
+├── picoclaw  # (pure binary agent, only 33 MB !)
+└── ReadMe.md # (You are here , hi !)
 ```
 
 ## Usage 

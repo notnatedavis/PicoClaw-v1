@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # scripts/backup-agent-logs.sh
 
-# Creates a gzipped tarball of the logs/ directory with a timestamp
+# creates gzipped tarball of logs/ directory with timestamp
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"

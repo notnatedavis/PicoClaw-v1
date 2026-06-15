@@ -1,8 +1,8 @@
 #!/usr/bin/env bash
 # scripts/clean.sh
 
-# Removes log files and empties workspace (keeps directory structure)
-# Does NOT remove configuration or the binary
+# Removes log files + empties workspace (keeping directory structure)
+# Does NOT remove (config/ or picoclaw)
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
