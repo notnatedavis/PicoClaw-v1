@@ -7,7 +7,6 @@
 #runtime data (logs, workspace, pid, etc)
 logs/*.log
 logs/*.tar.gz
-picoclaw
 picoclaw.pid
 workspace/agent-sessions/*
 !workspace/agent-sessions/.gitkeep
