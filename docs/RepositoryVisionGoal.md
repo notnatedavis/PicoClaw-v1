@@ -17,7 +17,7 @@ This project is a **free, minimal, self‑contained AI agent framework** built f
 
 ## Roadmap
 
-- [x] Groq + Telegram integration
+- [ ] Groq + Telegram integration
 - [x] Lifecycle scripts (setup, start, stop, status, clean)
 - [x] Sandboxed file operations
 - [ ] Add Discord & Slack gateways

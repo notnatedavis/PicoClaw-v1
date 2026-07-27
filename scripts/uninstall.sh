@@ -1,30 +1,25 @@
 #!/usr/bin/env bash
 # scripts/uninstall.sh
 
-# Completely removes the PicoClaw binary, configuration, and runtime data
-# Prompts for confirmation before deletion
+# Cleans runtime logs only.
+# Does NOT remove binaries or configuration – the binary is never downloaded
+# by setup, so it stays as a local copy.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-echo "WARNING: This will delete the picoclaw binary, all logs, and the workspace."
+echo "WARNING: This will delete all log files in logs/."
 read -p "Are you sure? (type 'yes' to confirm): " CONFIRM
 if [ "$CONFIRM" != "yes" ]; then
     echo "Aborted."
     exit 1
 fi
 
-# Stop gateway first
+# Stop gateway first (ignore errors if not running)
 bash scripts/stop.sh || true
 
-# Remove binary and PID
-rm -f picoclaw picoclaw.pid
-
 # Remove logs
-rm -rf logs/*.log
-
-# Clear workspace (but keep .gitkeep)
-find workspace/agent-sessions/ -mindepth 1 -not -name '.gitkeep' -exec rm -rf {} \;
-
-echo "Uninstall complete. Configuration files are left intact; delete them manually if desired."
+rm -f logs/*.log
+echo "All logs removed."
+echo "Uninstall (logs only) complete."
