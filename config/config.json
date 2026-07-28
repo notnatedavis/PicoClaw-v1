@@ -6,11 +6,11 @@
   "isolation": {},
   "agents": {
     "defaults": {
-      "workspace": "/Users/whoshotnate/.picoclaw/workspace",
+      "workspace": "./workspace",
       "restrict_to_workspace": true,
       "allow_read_outside_workspace": false,
       "provider": "groq",
-      "model_name": "groq-mixtral",
+      "model_name": "llama-3.3-70b-versatile",
       "max_tokens": 32768,
       "max_tool_iterations": 50,
       "summarize_message_threshold": 20,
@@ -46,9 +46,9 @@
   },
   "model_list": [
     {
-      "model_name": "groq-mixtral",
+      "model_name": "llama-3.3-70b-versatile",
       "provider": "groq",
-      "model": "mixtral-8x7b-32768",
+      "model": "llama-3.3-70b-versatile",
       "api_base": "https://api.groq.com/openai/v1"
     }
   ],
@@ -67,7 +67,8 @@
       },
       "settings": {
         "media_group_delay_ms": 500,
-        "use_markdown_v2": false
+        "use_markdown_v2": false,
+        "polling": true
       }
     }
   },
@@ -75,7 +76,7 @@
     "host": "localhost",
     "port": 18790,
     "hot_reload": false,
-    "log_level": "warn"
+    "log_level": "debug"
   },
   "events": {
     "logging": {

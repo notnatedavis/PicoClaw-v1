@@ -4,12 +4,31 @@
 # One‑command setup :
 #   - creates directories
 #   - copies .env.example → .env if missing
-#   - auto‑detects OS and copies the matching platform binary to 'picoclaw'
+#   - auto‑detects OS/architecture and copies the matching binary from binaries/
+#   - renames it to 'picoclaw' in the project root
 #   - sets environment variables
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
+
+# Helper to detect OS (mac / win / unknown)
+detect_os() {
+    case "$(uname -s)" in
+        Darwin)  echo "mac" ;;
+        MINGW*|MSYS*|CYGWIN*)  echo "win" ;;
+        *)       echo "unknown" ;;
+    esac
+}
+
+# Helper to detect architecture (arm64 / x86 / unknown)
+detect_arch() {
+    case "$(uname -m)" in
+        x86_64|amd64)  echo "x86" ;;
+        arm64|aarch64) echo "arm64" ;;
+        *)             echo "unknown" ;;
+    esac
+}
 
 echo "==> Setting up PicoClaw environment..."
 
@@ -34,45 +53,35 @@ mkdir -p logs workspace/agent-sessions/default
 # 3. remove stale PID if present (should not be running during setup)
 rm -f picoclaw.pid
 
-# 4. detect OS and pick the correct platform binary
-detected_os="unknown"
-case "$(uname -s)" in
-    Darwin)  detected_os="mac" ;;
-    MINGW*|MSYS*|CYGWIN*)  detected_os="win" ;;
-esac
+# 4. detect OS and architecture
+OS=$(detect_os)
+ARCH=$(detect_arch)
 
-platform_binary=""
-if [ "$detected_os" = "mac" ]; then
-    platform_binary="picoclaw-binary-mac"
-elif [ "$detected_os" = "win" ]; then
-    platform_binary="picoclaw-binary-win"
-else
-    echo "    [ERROR] Unsupported operating system: $(uname -s)."
+if [ "$OS" = "unknown" ] || [ "$ARCH" = "unknown" ]; then
+    echo "    [ERROR] Unsupported OS/architecture: $(uname -s) / $(uname -m)"
     echo "            Only macOS (Darwin) and Windows (Git Bash / MSYS2) are supported."
     exit 1
 fi
 
-# If 'picoclaw' already exists (from a previous setup) keep it
-# Otherwise, copy the platform‑specific binary
-if [ ! -f picoclaw ]; then
-    if [ -f "$platform_binary" ]; then
-        echo "    Creating 'picoclaw' from $platform_binary (detected OS: $detected_os)..."
-        cp "$platform_binary" picoclaw
-        chmod +x picoclaw
-        echo "    Platform binary copied and made executable."
-    else
-        echo "    [ERROR] '$platform_binary' not found."
-        echo "            Please download the correct binary from https://github.com/sipeed/picoclaw/releases"
-        exit 1
-    fi
-else
-    # binary already present – ensure it’s executable
-    if [ ! -x picoclaw ]; then
-        echo "    picoclaw found but not executable. Making it executable..."
-        chmod +x picoclaw
-    fi
-    echo "    picoclaw binary already present."
+# Build the source binary filename
+EXT=""
+if [ "$OS" = "win" ]; then
+    EXT=".exe"
 fi
+SOURCE_BINARY="binaries/picoclaw-binary-${OS}-${ARCH}${EXT}"
+
+if [ ! -f "$SOURCE_BINARY" ]; then
+    echo "    [ERROR] Binary not found: $SOURCE_BINARY"
+    echo "            Please ensure the binaries are placed in the 'binaries/' directory."
+    exit 1
+fi
+
+echo "    Detected OS: $OS, Architecture: $ARCH"
+echo "    Copying $SOURCE_BINARY to ./picoclaw ..."
+
+# Copy the binary to the root (overwrites any existing one)
+cp "$SOURCE_BINARY" picoclaw
+chmod +x picoclaw
 
 # 5. ensure PICOCLAW_CONFIG is set for this session
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"

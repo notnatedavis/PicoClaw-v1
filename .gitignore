@@ -8,13 +8,16 @@
 # ░▐▐▀▐▀░▀██████▀░▀▌▀▌▌
 
 # ----- Repo Specific -----
-
-#runtime data (logs, workspace, pid, etc)
-logs/*.log
-logs/*.tar.gz
+picoclaw
 picoclaw.pid
+workspace/
 workspace/agent-sessions/*
 !workspace/agent-sessions/.gitkeep
+!workspace/**/.gitkeep
+
+#runtime data (logs, workspace, pid, etc)
+logs/picoclaw.log
+logs/*.tar.gz
 # any backup archives
 *.tar.gz
 #computer specific

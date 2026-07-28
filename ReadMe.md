@@ -42,15 +42,21 @@ This repository provides a fully modular, script‑driven environment. Everythin
 
 ```bash
 PicoClaw-v1/
+├── binaries/
+│   ├── picoclaw-binary-mac-arm64
+│   ├── picoclaw-binary-mac-x86
+│   ├── picoclaw-binary-win-arm64.exe
+│   └── picoclaw-binary-win-x86.exe
 ├── config/
 │   ├── agents/ # custom agents
 │   │   └── assistant.json
 │   ├── skills/ # (future) user‑installed skills
 │   └── config.json
-├── docs/ # philosophy, roadmap, maintainer notes
+├── docs/       # philosophy, roadmap, notes
+│   ├── RepositoryVisionGoal.md
 │   └── ToDo.md
-├── logs/ # runtime logs (not tracked)
-├── scripts/ # lifecycle management
+├── logs/       # runtime logs (not tracked)
+├── scripts/    # lifecycle management
 │   ├── backup-agent-logs.sh
 │   ├── clean.sh
 │   ├── health-check.sh
@@ -61,13 +67,10 @@ PicoClaw-v1/
 │   ├── stop.sh
 │   ├── uninstall.sh
 │   └── update.sh
-├── workspace/ # agent sandbox – all file operations here
-│   └── agent-sessions/ # per‑agent isolated directories
+├── workspace/  # agent sandbox
+│   └── agent-sessions/ # per‑agent
 │       └── .gitkeep
-├── .env.example
-├── .gitignore
-├── picoclaw  # (pure binary agent, only 33 MB !)
-└── ReadMe.md # (You are here , hi !)
+└── ReadMe.md   # (You are here , hi !)
 ```
 
 ## Usage 
@@ -82,7 +85,7 @@ PicoClaw-v1/
     # edit .env.example to .env with real API keys (Groq + Telegram)
     ```
 
-3. **Run the full setup**
+3. **Run the full setup , Open Git Bash cd:/folders/PicoClaw**
     ```bash
    chmod +x scripts/*.sh
    bash scripts/setup.sh
@@ -113,8 +116,4 @@ PicoClaw-v1/
 
 ## Additional-Info
 
-This portion is for logging or storing notes relevent to the project and its scope. I want to include down the line a file that shuffles an img's data (.txt) by some key. to start simple I want to attempt practical use of key , i.e. you can select a key (.txt) file to both apply and decode a shuffle , such that the key can be any length (0-somearbitrarynumber). any key of any size should function being applied to any encoded file of any size.
-
-_future implementations_
-- key ? (of multiple types {.txt , hash / sha256})
-- 
+This portion is for logging or storing notes relevent to the project and its scope.
