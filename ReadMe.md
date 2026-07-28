@@ -9,6 +9,7 @@ A complete, free, lightweight ai agent framework built around [PicoClaw](https:/
 - [Introduction](#introduction)
 - [Features](#features)
 - [Project-Structure](#Project-Structure)
+- [Launch](#launch)
 - [Usage](#usage)
 - [Configuration](#Configuration)
 - [Troubleshooting](#troubleshooting)
@@ -75,7 +76,7 @@ PicoClaw-v1/
 └── ReadMe.md   # (You are here , hi !)
 ```
 
-## Usage 
+## Launch
 
 1. **Clone & enter**
    ```bash
@@ -102,6 +103,14 @@ PicoClaw-v1/
 
 5. **Chat with your bot on Telegram**
 - Send /start or any message
+- Use bash scripts/status.sh to see if it’s alive
+
+---
+
+## Usage 
+
+1. **Chat with PicoClaw on Telegram**
+- Send /start or any message eg "Who are you ?"
 - Use bash scripts/status.sh to see if it’s alive
 
 ## Configuration

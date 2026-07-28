@@ -5,7 +5,8 @@
 # Automatically stops any stale/leftover processes before starting.
 # Includes architecture check, foreground validation, and port conflict resolution.
 # Ensures TELEGRAM_TOKEN is set for the binary.
-# Also writes the Telegram bot token to ~/.picoclaw/.security.yml as required by the gateway.
+# Also writes the Telegram bot token and Groq API key to ~/.picoclaw/.security.yml
+# as required by the gateway (v0.3.1 reads secrets from this file, not from config.json).
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -61,30 +62,45 @@ else
     exit 1
 fi
 
+# --- Explicitly export GROQ_API_KEY so it is guaranteed visible ---
+if [ -n "${GROQ_API_KEY:-}" ]; then
+    export GROQ_API_KEY="${GROQ_API_KEY}"
+    echo "==> GROQ_API_KEY present: length=${#GROQ_API_KEY}, starts with '${GROQ_API_KEY:0:5}...'"
+else
+    echo "[ERROR] GROQ_API_KEY is empty or not set in .env. The bot cannot use Groq."
+    exit 1
+fi
+
 # Ensure TELEGRAM_TOKEN is set (the binary uses this variable)
-# If only TELEGRAM_BOT_TOKEN is set, copy it over.
 if [ -z "${TELEGRAM_TOKEN:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     export TELEGRAM_TOKEN="$TELEGRAM_BOT_TOKEN"
     echo "    TELEGRAM_TOKEN set from TELEGRAM_BOT_TOKEN"
 fi
 
-# ---- Write Telegram token to ~/.picoclaw/.security.yml ----
-# The gateway expects the token in this file, not in config.json.
-# It looks for the token under: channels.telegram.token
-# Create the directory and write the YAML content.
-if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-    SECURITY_DIR="$HOME/.picoclaw"
-    SECURITY_FILE="$SECURITY_DIR/.security.yml"
-    mkdir -p "$SECURITY_DIR"
-    cat > "$SECURITY_FILE" <<EOF
-channels:
-  telegram:
-    token: "${TELEGRAM_BOT_TOKEN}"
-EOF
-    echo "    Wrote Telegram token to $SECURITY_FILE"
-else
-    echo "[WARN] TELEGRAM_BOT_TOKEN is not set; cannot create .security.yml. Telegram channel will not work."
-fi
+# ---- Write ALL secrets to ~/.picoclaw/.security.yml ----
+# The gateway expects credentials in this file, not in config.json.
+# We overwrite the file each time to keep it in sync with .env.
+SECURITY_DIR="$HOME/.picoclaw"
+SECURITY_FILE="$SECURITY_DIR/.security.yml"
+mkdir -p "$SECURITY_DIR"
+
+# Build the file with both Telegram and Groq credentials
+{
+    echo "channels:"
+    echo "  telegram:"
+    if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
+        echo "    token: \"${TELEGRAM_BOT_TOKEN}\""
+    else
+        echo "    token: \"\""
+    fi
+    echo ""
+    echo "providers:"
+    echo "  groq:"
+    echo "    api_key: \"${GROQ_API_KEY}\""
+    # add other providers here if needed
+} > "$SECURITY_FILE"
+
+echo "    Wrote Telegram token and Groq API key to $SECURITY_FILE"
 
 # Also set the environment variable that the gateway might read (fallback)
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
@@ -111,8 +127,9 @@ else
     echo "[WARN] TELEGRAM_BOT_TOKEN is not set in .env. Bot will not work."
 fi
 
-# set config path (environment may already have it)
-export PICOCLAW_CONFIG="${PICOCLAW_CONFIG:-$REPO_ROOT/config/config.json}"
+# set config path to the original config (no runtime injection needed)
+export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
+echo "    PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
 
 # --- Architecture / binary compatibility check (platform‑aware) ---
 echo "==> Checking binary compatibility..."
@@ -151,7 +168,6 @@ kill_process_on_port 18790
 
 # --- Dry-run foreground validation (captures panics, missing libraries, config errors) ---
 echo "==> Verifying gateway can start (foreground trial for 3s)..."
-# Check if 'timeout' command exists; if not, fall back to a background-and-kill approach.
 if command -v timeout >/dev/null 2>&1; then
     set +e
     timeout 3 ./picoclaw gateway > /tmp/picoclaw_trial.log 2>&1
@@ -177,14 +193,12 @@ rm -f /tmp/picoclaw_trial.log
 
 # --- Cleanup any stale/leftover processes ---
 cleanup_stale() {
-    # 1. Kill by PID file if it exists but process is dead or unresponsive
     if [ -f picoclaw.pid ]; then
         OLD_PID=$(cat picoclaw.pid)
         if kill -0 "$OLD_PID" 2>/dev/null; then
             echo "Found running PicoClaw instance (PID $OLD_PID). Stopping it first..."
             kill "$OLD_PID" 2>/dev/null || true
             sleep 1
-            # Force kill if still alive
             if kill -0 "$OLD_PID" 2>/dev/null; then
                 echo "Process did not stop gracefully, force killing..."
                 kill -9 "$OLD_PID" 2>/dev/null || true
@@ -197,7 +211,6 @@ cleanup_stale() {
         rm -f picoclaw.pid
     fi
 
-    # 2. Kill any orphaned picoclaw processes that might be lingering
     if command -v pgrep >/dev/null 2>&1; then
         ORPHANS=$(pgrep -f "picoclaw gateway" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
@@ -205,7 +218,6 @@ cleanup_stale() {
             echo "Cleaning up orphans..."
             echo "$ORPHANS" | xargs kill 2>/dev/null || true
             sleep 1
-            # Force kill any survivors
             SURVIVORS=$(pgrep -f "picoclaw gateway" 2>/dev/null || true)
             if [ -n "$SURVIVORS" ]; then
                 echo "$SURVIVORS" | xargs kill -9 2>/dev/null || true
@@ -213,12 +225,10 @@ cleanup_stale() {
             echo "Orphans cleaned."
         fi
     else
-        # On Windows without pgrep, we rely on the port kill and PID file cleanup.
         echo "    pgrep not available; skipping orphan cleanup (port kill will handle)."
     fi
 }
 
-# Run cleanup before starting
 cleanup_stale
 
 # --- Start fresh ---
@@ -239,3 +249,21 @@ else
     rm -f picoclaw.pid
     exit 1
 fi
+
+# --- Optional env check ---
+if [ -f /proc/$PID/environ ]; then
+    echo "==> Checking GROQ_API_KEY in gateway process environment (PID $PID)..."
+    if tr '\0' '\n' < /proc/$PID/environ | grep -q '^GROQ_API_KEY='; then
+        echo "    [OK] GROQ_API_KEY found in process environment."
+    else
+        echo "    [WARN] GROQ_API_KEY NOT present in process environment."
+    fi
+else
+    echo "    (Cannot check process environment – /proc/$PID/environ not available on this system)"
+fi
+
+echo ""
+echo "The Groq API key is now stored in $SECURITY_FILE."
+echo "If the bot still returns 'Invalid API Key' on free-text messages, run:"
+echo "    cat $SECURITY_FILE"
+echo "to verify the key is correctly written."

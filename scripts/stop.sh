@@ -3,6 +3,7 @@
 
 # Gracefully stops the PicoClaw gateway process.
 # Also kills any rogue process occupying port 18790.
+# 2026‑07‑28: Removes the temporary runtime config created by start.sh.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -90,5 +91,12 @@ fi
 # 2. Force‑kill any remaining process on the gateway port (18790)
 echo "Checking for rogue processes on port 18790..."
 kill_process_on_port 18790
+
+# 3. Remove the runtime config (with embedded API key) for security
+RUNTIME_CONFIG="$REPO_ROOT/config/runtime-config.json"
+if [ -f "$RUNTIME_CONFIG" ]; then
+    rm -f "$RUNTIME_CONFIG"
+    echo "Removed temporary runtime config: $RUNTIME_CONFIG"
+fi
 
 echo "Stop complete."
