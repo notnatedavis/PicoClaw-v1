@@ -42,7 +42,7 @@ This repository provides a fully modular, script‑driven environment. Everythin
 
 ```bash
 PicoClaw-v1/
-├── binaries/
+├── binaries/   # selected on setup
 │   ├── picoclaw-binary-mac-arm64
 │   ├── picoclaw-binary-mac-x86
 │   ├── picoclaw-binary-win-arm64.exe
@@ -59,10 +59,10 @@ PicoClaw-v1/
 ├── scripts/    # lifecycle management
 │   ├── backup-agent-logs.sh
 │   ├── clean.sh
-│   ├── health-check.sh
+│   ├── health-check.sh # *
 │   ├── setup-ollama.sh
-│   ├── setup.sh
-│   ├── start.sh
+│   ├── setup.sh # *
+│   ├── start.sh # *
 │   ├── status.sh
 │   ├── stop.sh
 │   ├── uninstall.sh
@@ -70,6 +70,8 @@ PicoClaw-v1/
 ├── workspace/  # agent sandbox
 │   └── agent-sessions/ # per‑agent
 │       └── .gitkeep
+├── .env.example
+├── .gitignore
 └── ReadMe.md   # (You are here , hi !)
 ```
 
