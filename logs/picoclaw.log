@@ -1,0 +1,65 @@
+
+[1;38;2;62;93;185m██████╗ ██╗ ██████╗ ██████╗ [1;38;2;213;70;70m ██████╗██╗      █████╗ ██╗    ██╗
+[1;38;2;62;93;185m██╔══██╗██║██╔════╝██╔═══██╗[1;38;2;213;70;70m██╔════╝██║     ██╔══██╗██║    ██║
+[1;38;2;62;93;185m██████╔╝██║██║     ██║   ██║[1;38;2;213;70;70m██║     ██║     ███████║██║ █╗ ██║
+[1;38;2;62;93;185m██╔═══╝ ██║██║     ██║   ██║[1;38;2;213;70;70m██║     ██║     ██╔══██║██║███╗██║
+[1;38;2;62;93;185m██║     ██║╚██████╗╚██████╔╝[1;38;2;213;70;70m╚██████╗███████╗██║  ██║╚███╔███╔╝
+[1;38;2;62;93;185m╚═╝     ╚═╝ ╚═════╝ ╚═════╝ [1;38;2;213;70;70m ╚═════╝╚══════╝╚═╝  ╚═╝ ╚══╝╚══╝
+ [0m
+15:49:27 INF gateway /home/runner/work/picoclaw/picoclaw/pkg/gateway/gateway.go:165 > Log level set to "info"
+15:49:27 INF pid /home/runner/work/picoclaw/picoclaw/pkg/pid/pidfile.go:60 > found pid file (PID: 26468, version: 0.3.1)
+15:49:27 WRN pid /home/runner/work/picoclaw/picoclaw/pkg/pid/pidfile.go:76 > not running (PID: 26468) so will remove the pid file: C:\Users\davis\.picoclaw\.picoclaw.pid
+15:49:27 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/registry.go:41 > Created implicit main agent (no agents.list configured)
+
+📦 Agent Status:
+  • Tools: 14 loaded
+  • Skills: 0/0 available
+15:49:27 INF agent /home/runner/work/picoclaw/picoclaw/pkg/gateway/gateway.go:212 > Agent initialized skills_available=0 skills_total=0 tools_count=14
+✓ Cron service started
+15:49:27 INF heartbeat /home/runner/work/picoclaw/picoclaw/pkg/heartbeat/service.go:100 > Heartbeat service started interval_minutes=30
+✓ Heartbeat service started
+15:49:27 INF media /home/runner/work/picoclaw/picoclaw/pkg/media/store.go:322 > cleanup enabled interval=5m0s max_age=30m0s
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1071 > Initializing channel manager
+15:49:27 WRN channels /home/runner/work/picoclaw/picoclaw/pkg/channels/base.go:131 > SECURITY: Channel allows EVERYONE (allow_from is empty) channel=telegram hint="Set allow_from to your ID, or use '*' to explicitly acknowledge open access."
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:989 > Channel enabled successfully channel=telegram type=telegram
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1088 > Channel initialization completed enabled_channels=1
+✓ Channels enabled: [telegram]
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1193 > Starting all channels
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1201 > Starting channel channel=telegram
+15:49:27 INF telegram /home/runner/work/picoclaw/picoclaw/pkg/channels/telegram/telegram.go:153 > Starting Telegram bot (polling mode)...
+15:49:27 INF telegram /home/runner/work/picoclaw/picoclaw/pkg/channels/telegram/telegram.go:177 > Telegram bot connected username=notnatedavisPicoClaw1_bot
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1328 > Channel startup completed failed=0 started=1 total=1
+15:49:27 INF voice /home/runner/work/picoclaw/picoclaw/pkg/gateway/gateway.go:96 > Channel voice capabilities asr=false channel=telegram tts=false
+✓ Health endpoints available at http://localhost:18790/health, /ready and /reload (POST)
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1293 > Shared HTTP server listening addr=127.0.0.1:18790
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1606 > Outbound dispatcher started
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1606 > Outbound media dispatcher started
+15:49:27 INF channels /home/runner/work/picoclaw/picoclaw/pkg/channels/manager.go:1293 > Shared HTTP server listening addr=[::1]:18790
+15:49:27 INF devices /home/runner/work/picoclaw/picoclaw/pkg/devices/service.go:58 > Device event service disabled or no sources
+✓ Gateway started on [::1]:18790
+✓ Gateway started on 127.0.0.1:18790
+Press Ctrl+C to stop
+15:49:28 INF telegram /home/runner/work/picoclaw/picoclaw/pkg/channels/telegram/command_registration.go:92 > Telegram commands registered count=13
+15:49:28 INF heartbeat /home/runner/work/picoclaw/picoclaw/pkg/heartbeat/service.go:167 > No heartbeat prompt (HEARTBEAT.md empty or missing)
+15:49:34 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_message.go:133 > Processing message from telegram:8271654382: /start channel=telegram chat_id=8271654382 sender_id=8271654382 session_key=
+15:49:34 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_message.go:168 > Routed message agent_id=main matched_by=default route_agent=main route_channel=telegram route_main_session=sk_v1_6d9217fe77c7f11d9cc992aabe81a2d09604e9c48babbda8fdad3791f9c19f3b scope_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc
+15:49:34 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_outbound.go:86 > Published outbound response channel=telegram chat_id=8271654382 content_len=25
+15:49:40 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_message.go:133 > Processing message from telegram:8271654382: What day is it channel=telegram chat_id=8271654382 sender_id=8271654382 session_key=
+15:49:40 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_message.go:168 > Routed message agent_id=main matched_by=default route_agent=main route_channel=telegram route_main_session=sk_v1_6d9217fe77c7f11d9cc992aabe81a2d09604e9c48babbda8fdad3791f9c19f3b scope_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc
+15:49:40 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.turn.start agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct event_id=evt-7 event_kind=agent.turn.start event_time=2026-08-02T15:49:40.6897336-04:00 media_count=0 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main trace_id=turn.start turn_id=main-turn-3 user_len=14
+15:49:40 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.llm.request agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct event_id=evt-8 event_kind=agent.llm.request event_time=2026-08-02T15:49:40.6970289-04:00 iteration=1 max_tokens=4096 message_id=113 messages=8 model=llama3.2:3b sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main tools=15 trace_id=turn.llm.request turn_id=main-turn-3
+15:49:42 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/pipeline_llm.go:604 > LLM requested tool calls agent_id=main count=1 iteration=1 tools=["web_search"]
+15:49:42 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.llm.response agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct content_len=0 event_id=evt-9 event_kind=agent.llm.response event_time=2026-08-02T15:49:42.5035397-04:00 has_reasoning=false iteration=1 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main tool_calls=1 trace_id=turn.llm.response turn_id=main-turn-3
+15:49:42 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/pipeline_execute.go:477 > Tool call: web_search({"count":"1","query":"day","range":""}) agent_id=main iteration=1 tool=web_search
+15:49:42 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.tool.exec_start agent_id=main agent_source=runTurn args_count=3 channel=telegram chat_id=8271654382 chat_type=direct event_id=evt-10 event_kind=agent.tool.exec_start event_time=2026-08-02T15:49:42.5112745-04:00 iteration=1 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main tool=web_search trace_id=turn.tool.start turn_id=main-turn-3
+15:49:42 INF tool /home/runner/work/picoclaw/picoclaw/pkg/tools/registry.go:258 > Tool execution started args={"count":"1","query":"day","range":""} tool=web_search
+15:49:42 WRN tool /home/runner/work/picoclaw/picoclaw/pkg/tools/registry.go:277 > Tool argument validation failed error="property \"count\": expected integer, got string" tool=web_search
+15:49:42 WRN events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:182 > Runtime event: agent.tool.exec_end agent_id=main agent_source=runTurn async=false channel=telegram chat_id=8271654382 chat_type=direct duration_ms=1 event_id=evt-11 event_kind=agent.tool.exec_end event_time=2026-08-02T15:49:42.5128881-04:00 for_llm_len=87 for_user_len=0 is_error=true iteration=1 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=warn source_component=agent source_name=main tool=web_search trace_id=turn.tool.end turn_id=main-turn-3
+15:49:42 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.llm.request agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct event_id=evt-12 event_kind=agent.llm.request event_time=2026-08-02T15:49:42.524265-04:00 iteration=2 max_tokens=4096 message_id=113 messages=10 model=llama3.2:3b sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main tools=15 trace_id=turn.llm.request turn_id=main-turn-3
+15:49:43 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/pipeline_llm.go:584 > LLM response without tool calls (direct answer) agent_id=main content_chars=290 iteration=2
+15:49:43 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.llm.response agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct content_len=290 event_id=evt-13 event_kind=agent.llm.response event_time=2026-08-02T15:49:43.6167764-04:00 has_reasoning=false iteration=2 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main tool_calls=0 trace_id=turn.llm.response turn_id=main-turn-3
+15:49:43 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent.go:617 > Response: Using a cached result...
+
+Today is Monday, August 2, 2026. (Note: This information may not be up-to-date or accurate,... agent_id=main final_length=290 iterations=2 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc
+15:49:43 INF events /home/runner/work/picoclaw/picoclaw/pkg/agent/runtime_event_logger.go:186 > Runtime event: agent.turn.end agent_id=main agent_source=runTurn channel=telegram chat_id=8271654382 chat_type=direct duration_ms=2944 event_id=evt-14 event_kind=agent.turn.end event_time=2026-08-02T15:49:43.6338013-04:00 final_len=290 iteration=2 iterations_total=2 message_id=113 sender_id=8271654382 session_key=sk_v1_8e9f02dcc0846ba505f482e8ccbb5dc93108fb1efb1416a20cb45e960da650dc severity=info source_component=agent source_name=main status=completed trace_id=turn.end turn_id=main-turn-3
+15:49:43 INF agent /home/runner/work/picoclaw/picoclaw/pkg/agent/agent_outbound.go:86 > Published outbound response channel=telegram chat_id=8271654382 content_len=290

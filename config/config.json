@@ -49,7 +49,7 @@
       "model_name": "llama3.2:3b",
       "provider": "ollama",
       "model": "llama3.2:3b",
-      "api_base": "http://localhost:11434/v1"
+      "api_base": "http://127.0.0.1:11434/v1"
     }
   ],
   "channel_list": {

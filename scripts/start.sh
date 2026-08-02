@@ -37,7 +37,7 @@ kill_process_on_port() {
             # Use || true to prevent script exit when no process is found
             pid=$(netstat -ano 2>/dev/null | grep ":$port " | grep LISTENING | awk '{print $NF}' | head -n1 || true)
             if [ -n "$pid" ]; then
-                echo "    Found process $pid using port $port. Killing it..."
+                echo "    - Found process $pid using port $port. Killing it..."
                 taskkill //F //PID "$pid" >/dev/null 2>&1 || true
                 sleep 1
             fi
@@ -45,7 +45,7 @@ kill_process_on_port() {
         mac|linux|*)
             pid=$(lsof -t -i :"$port" 2>/dev/null | head -n1 || true)
             if [ -n "$pid" ]; then
-                echo "    Found process $pid using port $port. Killing it..."
+                echo "    - Found process $pid using port $port. Killing it..."
                 kill -9 "$pid" >/dev/null 2>&1 || true
                 sleep 1
             fi
@@ -64,7 +64,7 @@ fi
 # Ensure TELEGRAM_TOKEN is set (the binary uses this variable)
 if [ -z "${TELEGRAM_TOKEN:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     export TELEGRAM_TOKEN="$TELEGRAM_BOT_TOKEN"
-    echo "    TELEGRAM_TOKEN set from TELEGRAM_BOT_TOKEN"
+    echo "    - TELEGRAM_TOKEN set from TELEGRAM_BOT_TOKEN"
 fi
 
 # ---- Write Telegram token to ~/.picoclaw/.security.yml ----
@@ -83,7 +83,7 @@ mkdir -p "$SECURITY_DIR"
     fi
 } > "$SECURITY_FILE"
 
-echo "    Wrote Telegram token to $SECURITY_FILE"
+echo "    - Wrote Telegram token to $SECURITY_FILE"
 
 # Also set the environment variable that the gateway might read (fallback)
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
@@ -92,86 +92,86 @@ fi
 
 # --- Quick Telegram token validation (early warning) ---
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
-    echo "==> Testing Telegram bot token..."
+    echo ">  Testing Telegram bot token..."
     HTTP_STATUS=$(curl -s -w "%{http_code}" \
         "https://api.telegram.org/bot${TELEGRAM_BOT_TOKEN}/getMe" \
         --max-time 5 \
         -o /tmp/telegram_start_test.json 2>/dev/null)
     if [ "$HTTP_STATUS" -eq 200 ] && grep -q '"ok":true' /tmp/telegram_start_test.json; then
         BOT_USER=$(jq -r '.result.username' /tmp/telegram_start_test.json 2>/dev/null || echo "unknown")
-        echo "    Telegram token valid (bot @$BOT_USER)"
+        echo "    [ OK ] Telegram token valid (bot @$BOT_USER)"
     else
-        echo "[WARN] Telegram token validation failed (HTTP $HTTP_STATUS)."
-        echo "       The gateway may still start, but the bot might not respond."
-        echo "       Check your token and network connectivity."
+        echo "    [WARN] Telegram token validation failed (HTTP $HTTP_STATUS)."
+        echo "           The gateway may still start, but the bot might not respond."
+        echo "           Check your token and network connectivity."
     fi
     rm -f /tmp/telegram_start_test.json
 else
-    echo "[WARN] TELEGRAM_BOT_TOKEN is not set in .env. Bot will not work."
+    echo "    [WARN] TELEGRAM_BOT_TOKEN is not set in .env. Bot will not work."
 fi
 
 # set config path to the original config
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
-echo "    PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
+echo "    - PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
 
 # --- Limit Ollama concurrency for low‑resource hosts ---
 export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
-echo "    OLLAMA_NUM_PARALLEL set to $OLLAMA_NUM_PARALLEL"
+echo "    - OLLAMA_NUM_PARALLEL set to $OLLAMA_NUM_PARALLEL"
 
 # --- Architecture / binary compatibility check (platform‑aware) ---
-echo "==> Checking binary compatibility..."
+echo ">  Checking binary compatibility..."
 OS=$(detect_os)
 BINARY_TYPE=$(file -b picoclaw 2>/dev/null || true)
 
 case "$OS" in
     mac)
         if [[ "$BINARY_TYPE" == *"Mach-O"* ]]; then
-            echo "    Binary is a macOS executable."
+            echo "    [ OK ] Binary is a macOS executable."
         else
-            echo "[ERROR] picoclaw binary is not a macOS executable."
-            echo "       Detected type: $BINARY_TYPE"
-            echo "       Please run 'bash scripts/setup.sh' to copy the correct binary."
+            echo "    [ERROR] picoclaw binary is not a macOS executable."
+            echo "             Detected type: $BINARY_TYPE"
+            echo "             Please run 'bash scripts/setup.sh' to copy the correct binary."
             exit 1
         fi
         ;;
     win)
         if [[ "$BINARY_TYPE" == *"PE32"* ]]; then
-            echo "    Binary is a Windows executable."
+            echo "    [ OK ] Binary is a Windows executable."
         else
-            echo "[ERROR] picoclaw binary is not a Windows executable."
-            echo "       Detected type: $BINARY_TYPE"
-            echo "       Please run 'bash scripts/setup.sh' to copy the correct binary."
+            echo "    [ERROR] picoclaw binary is not a Windows executable."
+            echo "             Detected type: $BINARY_TYPE"
+            echo "             Please run 'bash scripts/setup.sh' to copy the correct binary."
             exit 1
         fi
         ;;
     *)
-        echo "[WARN] Unknown OS, skipping binary type check."
+        echo "    [WARN] Unknown OS, skipping binary type check."
         ;;
 esac
 
 # --- Ensure the gateway port is free (18790 by default) ---
-echo "==> Checking port availability (18790)..."
+echo ">  Checking port availability (18790)..."
 kill_process_on_port 18790
 
 # --- Dry-run foreground validation (captures panics, missing libraries, config errors) ---
-echo "==> Verifying gateway can start (foreground trial for 3s)..."
+echo ">  Verifying gateway can start (foreground trial for 3s)..."
 if command -v timeout >/dev/null 2>&1; then
     set +e
     timeout 3 ./picoclaw gateway > /tmp/picoclaw_trial.log 2>&1
     TRIAL_EXIT=$?
     set -e
 else
-    echo "    'timeout' command not found; skipping foreground test (gateway will start directly)."
+    echo "    - 'timeout' command not found; skipping foreground test (gateway will start directly)."
     TRIAL_EXIT=0
 fi
 
 if [ $TRIAL_EXIT -eq 124 ]; then
-    echo "    Gateway started successfully (timeout reached – good)."
+    echo "    [ OK ] Gateway started successfully (timeout reached – good)."
 elif [ $TRIAL_EXIT -eq 0 ]; then
-    echo "    Gateway exited cleanly after test (possibly daemonised or finished)."
+    echo "    [ OK ] Gateway exited cleanly after test (possibly daemonised or finished)."
 else
-    echo "[ERROR] Gateway failed to start (exit code $TRIAL_EXIT)."
-    echo "-------- trial output --------"
+    echo "    [ERROR] Gateway failed to start (exit code $TRIAL_EXIT)."
+    echo "    -------- trial output --------"
     cat /tmp/picoclaw_trial.log
     rm -f /tmp/picoclaw_trial.log
     exit 1
@@ -183,17 +183,17 @@ cleanup_stale() {
     if [ -f picoclaw.pid ]; then
         OLD_PID=$(cat picoclaw.pid)
         if kill -0 "$OLD_PID" 2>/dev/null; then
-            echo "Found running PicoClaw instance (PID $OLD_PID). Stopping it first..."
+            echo "    - Found running PicoClaw instance (PID $OLD_PID). Stopping it first..."
             kill "$OLD_PID" 2>/dev/null || true
             sleep 1
             if kill -0 "$OLD_PID" 2>/dev/null; then
-                echo "Process did not stop gracefully, force killing..."
+                echo "      Process did not stop gracefully, force killing..."
                 kill -9 "$OLD_PID" 2>/dev/null || true
                 sleep 0.5
             fi
-            echo "Previous instance stopped."
+            echo "    - Previous instance stopped."
         else
-            echo "Found stale PID file (process $OLD_PID not running). Removing..."
+            echo "    - Found stale PID file (process $OLD_PID not running). Removing..."
         fi
         rm -f picoclaw.pid
     fi
@@ -201,37 +201,37 @@ cleanup_stale() {
     if command -v pgrep >/dev/null 2>&1; then
         ORPHANS=$(pgrep -f "picoclaw gateway" 2>/dev/null || true)
         if [ -n "$ORPHANS" ]; then
-            echo "Found orphaned picoclaw processes: $ORPHANS"
-            echo "Cleaning up orphans..."
+            echo "    - Found orphaned picoclaw processes: $ORPHANS"
+            echo "    - Cleaning up orphans..."
             echo "$ORPHANS" | xargs kill 2>/dev/null || true
             sleep 1
             SURVIVORS=$(pgrep -f "picoclaw gateway" 2>/dev/null || true)
             if [ -n "$SURVIVORS" ]; then
                 echo "$SURVIVORS" | xargs kill -9 2>/dev/null || true
             fi
-            echo "Orphans cleaned."
+            echo "    - Orphans cleaned."
         fi
     else
-        echo "    pgrep not available; skipping orphan cleanup (port kill will handle)."
+        echo "    - pgrep not available; skipping orphan cleanup (port kill will handle)."
     fi
 }
 
 cleanup_stale
 
 # --- Warm up the AI model so the first real request is instant ---
-echo "==> Warming up model (sending a silent prompt)..."
+echo ">  Warming up model (sending a silent prompt)..."
 MODEL_NAME="llama3.2:3b"
 if command -v ollama >/dev/null 2>&1; then
     # Fire‑and‑forget prompt – we don't need the result, just want the model loaded
     ollama run "$MODEL_NAME" "" >/dev/null 2>&1 &
     sleep 1
-    echo "    Model warm‑up started (first response will be faster)."
+    echo "    - Model warm‑up started (first response will be faster)."
 else
-    echo "    ollama command not found; skip warm‑up."
+    echo "    - ollama command not found; skip warm‑up."
 fi
 
 # --- Start fresh ---
-echo "Starting PicoClaw gateway in background..."
+echo ">  Starting PicoClaw gateway in background..."
 nohup ./picoclaw gateway > logs/picoclaw.log 2>&1 &
 PID=$!
 echo $PID > picoclaw.pid
@@ -239,15 +239,15 @@ echo $PID > picoclaw.pid
 # Verify it actually started
 sleep 0.5
 if kill -0 "$PID" 2>/dev/null; then
-    echo "Started successfully with PID $PID. Logs: logs/picoclaw.log"
+    echo "    [ OK ] Started successfully with PID $PID. Logs: logs/picoclaw.log"
 else
-    echo "[ERROR] PicoClaw failed to start in background. Check logs/picoclaw.log for details."
-    echo "--- Last 20 lines of log ---"
+    echo "    [ERROR] PicoClaw failed to start in background. Check logs/picoclaw.log for details."
+    echo "    --- Last 20 lines of log ---"
     tail -n 20 logs/picoclaw.log || true
-    echo "-----------------------------"
+    echo "    -----------------------------"
     rm -f picoclaw.pid
     exit 1
 fi
 
 echo ""
-echo "The gateway is now running with Ollama (model: $MODEL_NAME)."
+echo ">  The gateway is now running with Ollama (model: $MODEL_NAME)."

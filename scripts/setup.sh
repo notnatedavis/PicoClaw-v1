@@ -14,9 +14,7 @@ set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 cd "$REPO_ROOT"
 
-# ------------------------------------------------------------
-# Helper: detect OS (mac / win / unknown)
-# ------------------------------------------------------------
+# ----- Helper Functions -----
 detect_os() {
     case "$(uname -s)" in
         Darwin)  echo "mac" ;;
@@ -25,9 +23,6 @@ detect_os() {
     esac
 }
 
-# ------------------------------------------------------------
-# Helper: detect architecture (arm64 / x86 / unknown)
-# ------------------------------------------------------------
 detect_arch() {
     case "$(uname -m)" in
         x86_64|amd64)  echo "x86" ;;
@@ -36,9 +31,6 @@ detect_arch() {
     esac
 }
 
-# ------------------------------------------------------------
-# Helper: set the custom OLLAMA_MODELS directory based on OS
-# ------------------------------------------------------------
 set_ollama_models_path() {
     local os="$1"
     case "$os" in
@@ -53,29 +45,28 @@ set_ollama_models_path() {
             export OLLAMA_MODELS=""
             ;;
     esac
-    echo "    OLLAMA_MODELS set to: $OLLAMA_MODELS"
+    echo "    - OLLAMA_MODELS set to: $OLLAMA_MODELS"
 }
 
-# ------------------------------------------------------------
-# Helper: stop any running Ollama instance
-# ------------------------------------------------------------
 stop_ollama_if_running() {
     if pgrep -x ollama >/dev/null 2>&1; then
-        echo "    Stopping running Ollama service..."
+        echo "    - Stopping running Ollama service..."
         pkill ollama 2>/dev/null || true
         # wait a moment to let the process die
         sleep 1
     fi
 }
 
-echo "==> Setting up PicoClaw environment..."
+echo ">  Setting up PicoClaw environment..."
+
+# ----- Main -----
 
 # 1. prepare .env file
 if [ ! -f .env ]; then
     if [ -f .env.example ]; then
-        echo "    Creating .env from .env.example. Please edit it with your keys"
+        echo "    - Creating .env from .env.example. Please edit it with your keys"
         cp .env.example .env
-        echo "    Run: nano .env   when ready"
+        echo "      Run: nano .env   when ready"
     else
         echo "    [ERROR] No .env.example found. Cannot continue"
         exit 1
@@ -114,8 +105,8 @@ if [ ! -f "$SOURCE_BINARY" ]; then
     exit 1
 fi
 
-echo "    Detected OS: $OS, Architecture: $ARCH"
-echo "    Copying $SOURCE_BINARY to ./picoclaw ..."
+echo "    - Detected OS: $OS, Architecture: $ARCH"
+echo "    - Copying $SOURCE_BINARY to ./picoclaw ..."
 
 # Copy the binary to the root (overwrites any existing one)
 cp "$SOURCE_BINARY" picoclaw
@@ -123,13 +114,11 @@ chmod +x picoclaw
 
 # 5. ensure PICOCLAW_CONFIG is set for this session
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
-echo "    PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
+echo "    - PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
 
-# ================================================================
 # 6. Ollama setup with custom model storage
-# ================================================================
 echo ""
-echo "==> Configuring Ollama..."
+echo ">  Configuring Ollama..."
 
 # Set the platform‑specific models directory
 set_ollama_models_path "$OS"
@@ -139,14 +128,14 @@ stop_ollama_if_running
 
 # Install Ollama if missing
 if ! command -v ollama &> /dev/null; then
-    echo "    Installing Ollama..."
+    echo "    - Installing Ollama..."
     curl -fsSL https://ollama.com/install.sh | sh
 else
-    echo "    Ollama already installed."
+    echo "    - Ollama already installed."
 fi
 
 # Start Ollama in the background with our custom OLLAMA_MODELS
-echo "    Starting Ollama serve with custom model path..."
+echo "    - Starting Ollama serve with custom model path..."
 nohup ollama serve > /dev/null 2>&1 &
 sleep 2
 
@@ -154,28 +143,28 @@ sleep 2
 if ! curl -s http://localhost:11434/api/tags --max-time 5 >/dev/null 2>&1; then
     echo "    [WARN] Ollama service did not start. Check logs and try manually."
 else
-    echo "    Ollama service is reachable."
+    echo "    [ OK ] Ollama service is reachable."
 fi
 
 # Pull the required model (llama3.2:3b supports tools/function‑calling)
 MODEL="llama3.2:3b"
-echo "==> Checking for model $MODEL ..."
+echo ">  Checking for model $MODEL ..."
 if ollama list 2>/dev/null | grep -q "$MODEL"; then
-    echo "    Model $MODEL already available."
+    echo "    - Model $MODEL already available."
 else
-    echo "    Pulling $MODEL (this may take a while on first run)..."
+    echo "    - Pulling $MODEL (this may take a while on first run)..."
     ollama pull "$MODEL"
 fi
 
 # Verify the model responds
-echo "==> Verifying $MODEL with a quick test..."
+echo ">  Verifying $MODEL with a quick test..."
 RESPONSE=$(ollama run "$MODEL" "Say hello in one word." 2>/dev/null || true)
 if echo "$RESPONSE" | grep -qiE 'hello|hi|greetings'; then
-    echo "    Model response OK: $RESPONSE"
+    echo "    [ OK ] Model response: $RESPONSE"
 else
     echo "    [WARN] Model test returned unexpected output: $RESPONSE"
     echo "           The model may still work, but the test prompt didn't produce the expected keyword."
 fi
 
-echo "==> Setup complete"
+echo ">  Setup complete"
 echo "    Next: bash scripts/start.sh"
