@@ -5,6 +5,7 @@
 - ensure config.json uses `YOUR_TELEGRAM_BOT_TOKEN`
 
 - test on both win + mac
+- clean up all
 
 - update ReadMe.md w/ all steps
 
