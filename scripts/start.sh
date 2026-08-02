@@ -1,12 +1,11 @@
 #!/usr/bin/env bash
 # scripts/start.sh
 
-# Starts the PicoClaw gateway in background, sourcing API keys and setting the config path.
+# Starts the PicoClaw gateway in background, sourcing the Telegram token and setting the config path.
 # Automatically stops any stale/leftover processes before starting.
 # Includes architecture check, foreground validation, and port conflict resolution.
-# Ensures TELEGRAM_TOKEN is set for the binary.
-# Also writes the Telegram bot token and Groq API key to ~/.picoclaw/.security.yml
-# as required by the gateway (v0.3.1 reads secrets from this file, not from config.json).
+# Writes the Telegram bot token to ~/.picoclaw/.security.yml (required by the gateway).
+# New: limits Ollama parallelism and warms up the model for instant first response.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -54,20 +53,11 @@ kill_process_on_port() {
     esac
 }
 
-# load environment variables (API keys) from .env
+# load environment variables (Telegram token) from .env
 if [ -f .env ]; then
     set -a; source .env; set +a
 else
     echo "[ERROR] .env file missing. Cannot start without API keys"
-    exit 1
-fi
-
-# --- Explicitly export GROQ_API_KEY so it is guaranteed visible ---
-if [ -n "${GROQ_API_KEY:-}" ]; then
-    export GROQ_API_KEY="${GROQ_API_KEY}"
-    echo "==> GROQ_API_KEY present: length=${#GROQ_API_KEY}, starts with '${GROQ_API_KEY:0:5}...'"
-else
-    echo "[ERROR] GROQ_API_KEY is empty or not set in .env. The bot cannot use Groq."
     exit 1
 fi
 
@@ -77,14 +67,12 @@ if [ -z "${TELEGRAM_TOKEN:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     echo "    TELEGRAM_TOKEN set from TELEGRAM_BOT_TOKEN"
 fi
 
-# ---- Write ALL secrets to ~/.picoclaw/.security.yml ----
-# The gateway expects credentials in this file, not in config.json.
-# We overwrite the file each time to keep it in sync with .env.
+# ---- Write Telegram token to ~/.picoclaw/.security.yml ----
+# The gateway expects channel credentials in this file.
 SECURITY_DIR="$HOME/.picoclaw"
 SECURITY_FILE="$SECURITY_DIR/.security.yml"
 mkdir -p "$SECURITY_DIR"
 
-# Build the file with both Telegram and Groq credentials
 {
     echo "channels:"
     echo "  telegram:"
@@ -93,14 +81,9 @@ mkdir -p "$SECURITY_DIR"
     else
         echo "    token: \"\""
     fi
-    echo ""
-    echo "providers:"
-    echo "  groq:"
-    echo "    api_key: \"${GROQ_API_KEY}\""
-    # add other providers here if needed
 } > "$SECURITY_FILE"
 
-echo "    Wrote Telegram token and Groq API key to $SECURITY_FILE"
+echo "    Wrote Telegram token to $SECURITY_FILE"
 
 # Also set the environment variable that the gateway might read (fallback)
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
@@ -127,9 +110,13 @@ else
     echo "[WARN] TELEGRAM_BOT_TOKEN is not set in .env. Bot will not work."
 fi
 
-# set config path to the original config (no runtime injection needed)
+# set config path to the original config
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
 echo "    PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
+
+# --- Limit Ollama concurrency for low‑resource hosts ---
+export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
+echo "    OLLAMA_NUM_PARALLEL set to $OLLAMA_NUM_PARALLEL"
 
 # --- Architecture / binary compatibility check (platform‑aware) ---
 echo "==> Checking binary compatibility..."
@@ -231,6 +218,18 @@ cleanup_stale() {
 
 cleanup_stale
 
+# --- Warm up the AI model so the first real request is instant ---
+echo "==> Warming up model (sending a silent prompt)..."
+MODEL_NAME="llama3.2:3b"
+if command -v ollama >/dev/null 2>&1; then
+    # Fire‑and‑forget prompt – we don't need the result, just want the model loaded
+    ollama run "$MODEL_NAME" "" >/dev/null 2>&1 &
+    sleep 1
+    echo "    Model warm‑up started (first response will be faster)."
+else
+    echo "    ollama command not found; skip warm‑up."
+fi
+
 # --- Start fresh ---
 echo "Starting PicoClaw gateway in background..."
 nohup ./picoclaw gateway > logs/picoclaw.log 2>&1 &
@@ -250,20 +249,5 @@ else
     exit 1
 fi
 
-# --- Optional env check ---
-if [ -f /proc/$PID/environ ]; then
-    echo "==> Checking GROQ_API_KEY in gateway process environment (PID $PID)..."
-    if tr '\0' '\n' < /proc/$PID/environ | grep -q '^GROQ_API_KEY='; then
-        echo "    [OK] GROQ_API_KEY found in process environment."
-    else
-        echo "    [WARN] GROQ_API_KEY NOT present in process environment."
-    fi
-else
-    echo "    (Cannot check process environment – /proc/$PID/environ not available on this system)"
-fi
-
 echo ""
-echo "The Groq API key is now stored in $SECURITY_FILE."
-echo "If the bot still returns 'Invalid API Key' on free-text messages, run:"
-echo "    cat $SECURITY_FILE"
-echo "to verify the key is correctly written."
+echo "The gateway is now running with Ollama (model: $MODEL_NAME)."

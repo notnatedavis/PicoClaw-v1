@@ -3,12 +3,10 @@
 
 # Health Checks:
 # - binary presence and type (platform‑aware)
-# - .env presence,
-# - API reachability (models list fetched once, reused for fallback)
-# - binary compatibility
-# - Groq API prompt response (actual LLM completion) – uses model from config.
-#   If the configured model is decommissioned, a suitable fallback is auto‑detected
-#   from the models list so the check never breaks due to a single deprecation.
+# - .env presence and loading
+# - Ollama service reachability
+# - llama3.2:3b model availability (auto‑pull if missing)
+# - model response test (simple prompt) WITH timing
 # - Telegram bot token validity (getMe)
 # - Optional: send a test message via Telegram if TEST_TELEGRAM_CHAT_ID is set
 # - Port availability (18790) – if in use, automatically kills the rogue process.
@@ -116,13 +114,88 @@ else
     ERRORS=$((ERRORS+1))
 fi
 
-# 3. Groq API key presence (needed for further checks)
-if [ -z "${GROQ_API_KEY:-}" ]; then
-    echo "[FAIL] GROQ_API_KEY not set"
+# 3. Ollama service reachability
+echo "==> Checking Ollama service..."
+OLLAMA_URL="http://localhost:11434"
+if curl -s "$OLLAMA_URL/api/tags" --max-time 5 >/dev/null 2>&1; then
+    echo "[ OK ] Ollama is reachable at $OLLAMA_URL"
+else
+    echo "[FAIL] Ollama not reachable. Is it installed and running? (scripts/setup-ollama.sh can help)"
     ERRORS=$((ERRORS+1))
 fi
 
-# 4. Telegram token and connectivity test
+# 4. Required model (llama3.2:3b) presence and verification
+MODEL="llama3.2:3b"
+echo "==> Checking model $MODEL..."
+MODEL_PRESENT=0
+if command -v ollama >/dev/null 2>&1; then
+    if ollama list 2>/dev/null | grep -q "$MODEL"; then
+        echo "[ OK ] Model $MODEL is already present."
+        MODEL_PRESENT=1
+    else
+        echo "[WARN] Model $MODEL not found. Attempting to pull..."
+        if ollama pull "$MODEL"; then
+            echo "[ OK ] Pulled $MODEL successfully."
+            MODEL_PRESENT=1
+        else
+            echo "[FAIL] Could not pull $MODEL."
+            ERRORS=$((ERRORS+1))
+        fi
+    fi
+else
+    echo "[FAIL] ollama command not found. Cannot check model."
+    ERRORS=$((ERRORS+1))
+fi
+
+# 5. Quick model response test WITH timing
+if [ $MODEL_PRESENT -eq 1 ]; then
+    echo "==> Testing a prompt with $MODEL (measuring speed)..."
+    # Cross‑platform time measurement (seconds with decimal if supported)
+    if date +%s.%N >/dev/null 2>&1; then
+        # GNU date (Linux) – nanosecond precision
+        START_TIME=$(date +%s.%N)
+        RESPONSE=$(ollama run "$MODEL" "Say hello in one word." 2>/dev/null || true)
+        END_TIME=$(date +%s.%N)
+        ELAPSED=$(echo "$END_TIME - $START_TIME" | bc 2>/dev/null || echo "0")
+    elif command -v perl >/dev/null 2>&1; then
+        # macOS / BSD date lacks %N – use Perl for high precision
+        START_TIME=$(perl -MTime::HiRes=time -e 'print time')
+        RESPONSE=$(ollama run "$MODEL" "Say hello in one word." 2>/dev/null || true)
+        END_TIME=$(perl -MTime::HiRes=time -e 'print time')
+        ELAPSED=$(echo "$END_TIME - $START_TIME" | bc 2>/dev/null || echo "0")
+    else
+        # Fallback: integer seconds (less precise, but works everywhere)
+        START_TIME=$(date +%s)
+        RESPONSE=$(ollama run "$MODEL" "Say hello in one word." 2>/dev/null || true)
+        END_TIME=$(date +%s)
+        ELAPSED=$(( END_TIME - START_TIME ))
+    fi
+
+    if echo "$RESPONSE" | grep -qiE 'hello|hi|greetings'; then
+        echo "[ OK ] Model responded correctly: $RESPONSE"
+    else
+        echo "[WARN] Model response was unexpected: $RESPONSE"
+    fi
+
+    # Display elapsed time
+    if [ -n "$ELAPSED" ] && [ "$ELAPSED" != "0" ]; then
+        # Convert to milliseconds if we have a fractional value
+        if echo "$ELAPSED" | grep -q '\.'; then
+            MS=$(echo "$ELAPSED * 1000" | bc | cut -d. -f1)
+            echo "       Response time: ${MS} ms"
+        else
+            echo "       Response time: ${ELAPSED} seconds"
+        fi
+        # Warn if >5 seconds
+        if (( $(echo "$ELAPSED > 5" | bc -l 2>/dev/null || echo 0) )); then
+            echo "[WARN] Response is very slow (>5s). Consider a smaller model or faster hardware."
+        fi
+    else
+        echo "       (could not measure time)"
+    fi
+fi
+
+# 6. Telegram token and connectivity test
 if [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
     echo "[ OK ] Telegram bot token is set"
     echo "==> Testing Telegram Bot API (getMe) ..."
@@ -165,13 +238,12 @@ else
     ERRORS=$((ERRORS+1))
 fi
 
-# 5. Port availability check (gateway uses 18790) – automatically kill rogue processes
+# 7. Port availability check (gateway uses 18790) – automatically kill rogue processes
 echo "==> Checking port 18790 availability..."
 OS=$(detect_os)
 PID=""
 case "$OS" in
     win)
-        # Use || true to prevent script exit if netstat/grep fail
         PID=$(netstat -ano 2>/dev/null | grep ":18790 " | grep LISTENING | awk '{print $NF}' | head -n1 || true)
         ;;
     mac|linux)
@@ -187,105 +259,6 @@ if [ -n "$PID" ]; then
     kill_process_on_port 18790
 else
     echo "[ OK ] Port 18790 is free."
-fi
-
-# Only proceed with Groq API checks if we have a key
-if [ -n "${GROQ_API_KEY:-}" ]; then
-    # Fetch the models list once – we’ll reuse it for reachability + fallback.
-    MODELS_FILE=$(mktemp)
-    HTTP_STATUS=$(curl -s -w "%{http_code}" \
-        -H "Authorization: Bearer $GROQ_API_KEY" \
-        "https://api.groq.com/openai/v1/models" \
-        --max-time 10 \
-        -o "$MODELS_FILE" 2>/dev/null)
-
-    if [ "$HTTP_STATUS" -eq 200 ]; then
-        echo "[ OK ] Groq API reachable"
-    else
-        echo "[FAIL] Groq API unreachable or invalid key (HTTP $HTTP_STATUS)"
-        ERRORS=$((ERRORS+1))
-    fi
-
-    # Read configured model from config.json
-    CONFIG_FILE="$REPO_ROOT/config/config.json"
-    if [ -f "$CONFIG_FILE" ] && command -v jq >/dev/null 2>&1; then
-        MODEL=$(jq -r '.agents.defaults.model_name // .model_list[0].model // "llama-3.3-70b-versatile"' "$CONFIG_FILE")
-    else
-        MODEL="llama-3.3-70b-versatile"   # last‑resort fallback
-        echo "[WARN] Could not read config or jq missing; using fallback model: $MODEL"
-    fi
-
-    # Helper: run a simple completion test and return 0 on success
-    test_model() {
-        local model="$1"
-        local outfile
-        outfile=$(mktemp)
-        local http_code
-        http_code=$(curl -s -w "%{http_code}" -X POST "https://api.groq.com/openai/v1/chat/completions" \
-            -H "Authorization: Bearer $GROQ_API_KEY" \
-            -H "Content-Type: application/json" \
-            -d "{\"model\":\"$model\",\"messages\":[{\"role\":\"user\",\"content\":\"Say hello in one word.\"}],\"max_tokens\":5}" \
-            --max-time 10 \
-            -o "$outfile" 2>/dev/null)
-
-        if [ "$http_code" -eq 200 ] && grep -q '"content"' "$outfile"; then
-            rm -f "$outfile"
-            return 0
-        fi
-
-        local error_msg
-        error_msg=$(jq -r '.error.message // .error // "No details"' "$outfile" 2>/dev/null || cat "$outfile")
-        rm -f "$outfile"
-        echo "$error_msg"
-        return 1
-    }
-
-    # Helper: pick a fallback chat model from the previously fetched models list
-    find_fallback_model() {
-        if [ -f "$MODELS_FILE" ] && command -v jq >/dev/null 2>&1; then
-            # Pick the first active model whose ID suggests it's a chat/text model
-            # (exclude whisper, playai, guard, and other obviously non‑chat ones).
-            jq -r '.data[] | select(.active == true) | .id' "$MODELS_FILE" \
-                | grep -ivE 'whisper|playai|guard|distil|tts' \
-                | head -n 1
-        fi
-    }
-
-    echo "==> Testing Groq API prompt (model: $MODEL) ..."
-    ERROR_MSG=$(test_model "$MODEL") || true
-    TEST_EXIT=$?
-
-    if [ $TEST_EXIT -eq 0 ]; then
-        echo "[ OK ] Groq API prompt response received"
-    else
-        if echo "$ERROR_MSG" | grep -qi "decommissioned"; then
-            echo "[WARN] Configured model '$MODEL' is decommissioned."
-            FALLBACK=$(find_fallback_model)
-            if [ -n "$FALLBACK" ]; then
-                echo "       Auto‑detected fallback model '$FALLBACK' from Groq API."
-            else
-                FALLBACK="llama-3.3-70b-versatile"
-                echo "       Could not detect fallback dynamically; using last‑resort '$FALLBACK'."
-            fi
-            echo "       Trying fallback ..."
-            FALLBACK_MSG=$(test_model "$FALLBACK") || true
-            FALLBACK_EXIT=$?
-            if [ $FALLBACK_EXIT -eq 0 ]; then
-                echo "[ OK ] Fallback model works – your API key is valid."
-                echo "       Please update 'model_name' in config.json to a supported model (e.g., $FALLBACK)."
-            else
-                echo "[FAIL] Fallback model also failed. Error: $FALLBACK_MSG"
-                ERRORS=$((ERRORS+1))
-            fi
-        else
-            echo "[FAIL] Groq API prompt test failed (HTTP error)"
-            echo "       Error: $ERROR_MSG"
-            ERRORS=$((ERRORS+1))
-        fi
-    fi
-
-    # Cleanup
-    rm -f "$MODELS_FILE"
 fi
 
 if [ $ERRORS -eq 0 ]; then

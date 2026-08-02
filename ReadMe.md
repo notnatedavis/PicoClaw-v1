@@ -1,6 +1,6 @@
 # PicoClaw (v1)
 
-A complete, free, lightweight ai agent framework built around [PicoClaw](https://github.com/sipeed/picoclaw) – the ultra‑fast, single‑binary Go agent. This repository `PicoClaw (v1)` provides  everything needed to run personal assistant on old hardware, controlled via Telegram (or other messengers), powered entirely through free AI models (Groq, Ollama, etc.)
+A complete, free, lightweight ai agent framework built around [PicoClaw](https://github.com/sipeed/picoclaw) – the ultra‑fast, single‑binary Go agent. This repository `PicoClaw (v1)` provides  everything needed to run personal assistant on old hardware, controlled via Telegram (or other messengers), powered entirely through free AI models (Ollama)
 
 ---
 
@@ -62,13 +62,13 @@ PicoClaw-v1/
 │   ├── clean.sh
 │   ├── health-check.sh # *
 │   ├── setup-ollama.sh
-│   ├── setup.sh # *
-│   ├── start.sh # *
+│   ├── setup.sh        # *
+│   ├── start.sh        # *
 │   ├── status.sh
 │   ├── stop.sh
 │   ├── uninstall.sh
 │   └── update.sh
-├── workspace/  # agent sandbox
+├── workspace/ # agent sandbox
 │   └── agent-sessions/ # per‑agent
 │       └── .gitkeep
 ├── .env.example
@@ -80,15 +80,17 @@ PicoClaw-v1/
 
 1. **Clone & enter**
    ```bash
-   git clone <your-repo-url> && cd PicoClaw-v1
+   git clone <https://github.com/notnatedavis/PicoClaw-v1.git> && cd PicoClaw-v1
     ```
 
 2. **Set up environment**
     ```bash
-    # edit .env.example to .env with real API keys (Groq + Telegram)
+    # create new file '.env' clone '.env.example'
+    # 
     ```
 
-3. **Run the full setup , Open Git Bash cd:/folders/PicoClaw**
+3. **Run the full setup**
+    Open Git Bash (win) / terminal (mac)
     ```bash
    chmod +x scripts/*.sh
    bash scripts/setup.sh

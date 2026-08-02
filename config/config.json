@@ -9,12 +9,12 @@
       "workspace": "./workspace",
       "restrict_to_workspace": true,
       "allow_read_outside_workspace": false,
-      "provider": "groq",
-      "model_name": "llama-3.3-70b-versatile",
-      "max_tokens": 32768,
-      "max_tool_iterations": 50,
-      "summarize_message_threshold": 20,
-      "summarize_token_percent": 75,
+      "provider": "ollama",
+      "model_name": "llama3.2:3b",
+      "max_tokens": 4096,
+      "max_tool_iterations": 10,
+      "summarize_message_threshold": 15,
+      "summarize_token_percent": 60,
       "steering_mode": "one-at-a-time",
       "subturn": {
         "max_depth": 0,
@@ -46,10 +46,10 @@
   },
   "model_list": [
     {
-      "model_name": "llama-3.3-70b-versatile",
-      "provider": "groq",
-      "model": "llama-3.3-70b-versatile",
-      "api_base": "https://api.groq.com/openai/v1"
+      "model_name": "llama3.2:3b",
+      "provider": "ollama",
+      "model": "llama3.2:3b",
+      "api_base": "http://localhost:11434/v1"
     }
   ],
   "channel_list": {
@@ -76,7 +76,7 @@
     "host": "localhost",
     "port": 18790,
     "hot_reload": false,
-    "log_level": "debug"
+    "log_level": "info"
   },
   "events": {
     "logging": {
@@ -158,18 +158,18 @@
       "allow_remote": true,
       "custom_deny_patterns": null,
       "custom_allow_patterns": null,
-      "timeout_seconds": 60
+      "timeout_seconds": 30
     },
     "skills": {
-      "enabled": true,
+      "enabled": false,
       "registries": {
         "clawhub": {
           "base_url": "https://clawhub.ai",
-          "enabled": true
+          "enabled": false
         },
         "github": {
           "base_url": "https://github.com",
-          "enabled": true
+          "enabled": false
         }
       },
       "github": {},
