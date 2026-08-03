@@ -5,7 +5,7 @@
 # Automatically stops any stale/leftover processes before starting.
 # Includes architecture check, foreground validation, and port conflict resolution.
 # Writes the Telegram bot token to ~/.picoclaw/.security.yml (required by the gateway).
-# New: limits Ollama parallelism and warms up the model for instant first response.
+# New: validates agent/skills configurations and pkg/ source presence before launch.
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -34,7 +34,6 @@ kill_process_on_port() {
 
     case "$os" in
         win)
-            # Use || true to prevent script exit when no process is found
             pid=$(netstat -ano 2>/dev/null | grep ":$port " | grep LISTENING | awk '{print $NF}' | head -n1 || true)
             if [ -n "$pid" ]; then
                 echo "    - Found process $pid using port $port. Killing it..."
@@ -53,6 +52,37 @@ kill_process_on_port() {
     esac
 }
 
+# ----- JSON validation helpers -----
+validate_json_file() {
+    local file="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "import json; json.load(open('$file'))" 2>/dev/null
+    elif command -v jq >/dev/null 2>&1; then
+        jq empty "$file" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
+
+check_agent_json() {
+    local file="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, sys
+with open('$file') as f:
+    data = json.load(f)
+    for key in ['name', 'system_prompt', 'tools']:
+        if key not in data:
+            print(f'Missing key: {key}')
+            sys.exit(1)
+" 2>/dev/null
+    elif command -v jq >/dev/null 2>&1; then
+        jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1
+    else
+        return 1
+    fi
+}
+
 # load environment variables (Telegram token) from .env
 if [ -f .env ]; then
     set -a; source .env; set +a
@@ -68,7 +98,6 @@ if [ -z "${TELEGRAM_TOKEN:-}" ] && [ -n "${TELEGRAM_BOT_TOKEN:-}" ]; then
 fi
 
 # ---- Write Telegram token to ~/.picoclaw/.security.yml ----
-# The gateway expects channel credentials in this file.
 SECURITY_DIR="$HOME/.picoclaw"
 SECURITY_FILE="$SECURITY_DIR/.security.yml"
 mkdir -p "$SECURITY_DIR"
@@ -113,6 +142,59 @@ fi
 # set config path to the original config
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
 echo "    - PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
+
+# ---- NEW: Validate agent/skill configs and pkg/ before starting ----
+echo ">  Validating agent and skill configurations..."
+EXIT_FLAG=0
+
+if [ -d config/agents ]; then
+    for f in config/agents/*.json; do
+        [ -f "$f" ] || continue
+        echo "    - Checking $f"
+        if ! validate_json_file "$f"; then
+            echo "      [FAIL] Invalid JSON"
+            EXIT_FLAG=1
+        fi
+        if ! check_agent_json "$f"; then
+            echo "      [FAIL] Missing required keys (name, system_prompt, tools)"
+            EXIT_FLAG=1
+        fi
+    done
+else
+    echo "    [ERROR] config/agents/ directory missing. Cannot start."
+    exit 1
+fi
+
+if [ -d config/skills ]; then
+    for f in config/skills/*.json; do
+        [ -f "$f" ] || continue
+        echo "    - Checking $f"
+        if ! validate_json_file "$f"; then
+            echo "      [WARN] Invalid JSON in skill config (will be ignored)"
+        fi
+    done
+fi
+
+# Verify pkg/ source files exist (warn only)
+echo "    - Checking pkg/ source files..."
+REQUIRED_PKG=(
+    "pkg/agent/agent.go"
+    "pkg/agent/pipeline_llm.go"
+    "pkg/agent/registry.go"
+    "pkg/gateway/gateway.go"
+)
+for file in "${REQUIRED_PKG[@]}"; do
+    if [ ! -f "$file" ]; then
+        echo "      [WARN] Missing $file – the gateway may fail to start."
+    fi
+done
+
+if [ $EXIT_FLAG -ne 0 ]; then
+    echo "[ERROR] Agent configuration errors must be fixed before starting."
+    exit 1
+fi
+
+echo "    [ OK ] Configuration validation passed."
 
 # --- Limit Ollama concurrency for low‑resource hosts ---
 export OLLAMA_NUM_PARALLEL="${OLLAMA_NUM_PARALLEL:-1}"
@@ -222,7 +304,6 @@ cleanup_stale
 echo ">  Warming up model (sending a silent prompt)..."
 MODEL_NAME="llama3.2:3b"
 if command -v ollama >/dev/null 2>&1; then
-    # Fire‑and‑forget prompt – we don't need the result, just want the model loaded
     ollama run "$MODEL_NAME" "" >/dev/null 2>&1 &
     sleep 1
     echo "    - Model warm‑up started (first response will be faster)."

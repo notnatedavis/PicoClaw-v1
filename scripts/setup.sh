@@ -7,6 +7,7 @@
 #   - auto‑detects OS/architecture and copies the matching binary from binaries/
 #   - renames it to 'picoclaw' in the project root
 #   - sets environment variables
+#   - validates agent/skills configs and pkg/ structure
 #   - configures Ollama to use a custom models directory (platform‑aware)
 #   - ensures Ollama + the llama3.2:3b model (supports tools) are ready
 
@@ -52,14 +53,44 @@ stop_ollama_if_running() {
     if pgrep -x ollama >/dev/null 2>&1; then
         echo "    - Stopping running Ollama service..."
         pkill ollama 2>/dev/null || true
-        # wait a moment to let the process die
         sleep 1
     fi
 }
 
-echo ">  Setting up PicoClaw environment..."
+# ----- JSON validation helper (requires python3 or jq) -----
+validate_json_file() {
+    local file="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "import json; json.load(open('$file'))" 2>/dev/null
+    elif command -v jq >/dev/null 2>&1; then
+        jq empty "$file" >/dev/null 2>&1
+    else
+        echo "    [WARN] No JSON validator found (install python3 or jq). Skipping validation of $file"
+        return 1
+    fi
+}
 
-# ----- Main -----
+check_agent_json() {
+    local file="$1"
+    local errors=0
+    # Check required keys: name, system_prompt, tools
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, sys
+with open('$file') as f:
+    data = json.load(f)
+    for key in ['name', 'system_prompt', 'tools']:
+        if key not in data:
+            print(f'Missing key: {key}')
+            sys.exit(1)
+" 2>/dev/null || errors=1
+    elif command -v jq >/dev/null 2>&1; then
+        jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1 || errors=1
+    fi
+    return $errors
+}
+
+echo ">  Setting up PicoClaw environment..."
 
 # 1. prepare .env file
 if [ ! -f .env ]; then
@@ -116,7 +147,93 @@ chmod +x picoclaw
 export PICOCLAW_CONFIG="$REPO_ROOT/config/config.json"
 echo "    - PICOCLAW_CONFIG set to $PICOCLAW_CONFIG"
 
-# 6. Ollama setup with custom model storage
+# ---- NEW: Validate config/agents, config/skills, and pkg/ structure ----
+echo ""
+echo ">  Validating configuration files and source structure..."
+
+FAILURES=0
+
+# --- agents ---
+if [ -d config/agents ]; then
+    agent_count=0
+    for f in config/agents/*.json; do
+        [ -f "$f" ] || continue
+        ((agent_count++))
+        echo "    - Checking agent config: $f"
+        if ! validate_json_file "$f"; then
+            echo "      [FAIL] Invalid JSON in $f"
+            FAILURES=$((FAILURES+1))
+        else
+            echo "      [ OK ] Valid JSON"
+        fi
+        if ! check_agent_json "$f"; then
+            echo "      [FAIL] Missing required keys (name, system_prompt, tools)"
+            FAILURES=$((FAILURES+1))
+        else
+            echo "      [ OK ] Required keys present"
+        fi
+    done
+    if [ $agent_count -eq 0 ]; then
+        echo "    [WARN] No agent configs found in config/agents/"
+        FAILURES=$((FAILURES+1))
+    else
+        echo "    [ OK ] Found $agent_count agent config(s)."
+    fi
+else
+    echo "    [ERROR] config/agents/ directory missing. Cannot proceed."
+    exit 1
+fi
+
+# --- skills ---
+if [ -d config/skills ]; then
+    skill_count=0
+    for f in config/skills/*.json; do
+        [ -f "$f" ] || continue
+        ((skill_count++))
+        echo "    - Checking skill config: $f"
+        if ! validate_json_file "$f"; then
+            echo "      [FAIL] Invalid JSON in $f"
+            FAILURES=$((FAILURES+1))
+        else
+            echo "      [ OK ] Valid JSON"
+        fi
+    done
+    if [ $skill_count -gt 0 ]; then
+        echo "    [ OK ] Found $skill_count skill config(s)."
+    else
+        echo "    [INFO] No skill configs found in config/skills/ (optional)."
+    fi
+else
+    echo "    [INFO] config/skills/ directory not found (optional)."
+fi
+
+# --- pkg/ source files ---
+echo "    - Checking pkg/ source files..."
+REQUIRED_PKG_FILES=(
+    "pkg/agent/agent.go"
+    "pkg/agent/pipeline_llm.go"
+    "pkg/agent/registry.go"
+    "pkg/gateway/gateway.go"
+)
+for file in "${REQUIRED_PKG_FILES[@]}"; do
+    if [ -f "$file" ]; then
+        echo "      [ OK ] $file exists"
+    else
+        echo "      [FAIL] $file MISSING"
+        FAILURES=$((FAILURES+1))
+    fi
+done
+
+# Final verdict
+if [ $FAILURES -gt 0 ]; then
+    echo ""
+    echo "[WARN] $FAILURES validation issue(s) found. Some features may not work correctly."
+    echo "       Please fix them and re-run setup.sh or continue at your own risk."
+else
+    echo "    [ OK ] All configuration and source file validations passed."
+fi
+
+# ---- Proceed with Ollama setup ----
 echo ""
 echo ">  Configuring Ollama..."
 

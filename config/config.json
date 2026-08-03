@@ -38,7 +38,11 @@
       },
       "max_llm_retries": 2,
       "llm_retry_backoff_secs": 2
-    }
+    },
+    "list": [
+      { "name": "default" },
+      { "name": "admin" }
+    ]
   },
   "evolution": {
     "min_task_count": 2,

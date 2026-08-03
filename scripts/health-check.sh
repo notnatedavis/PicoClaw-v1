@@ -10,6 +10,7 @@
 # - Telegram bot token validity (getMe)
 # - Optional: send a test message via Telegram if TEST_TELEGRAM_CHAT_ID is set
 # - Port availability (18790) – if in use, automatically kills the rogue process.
+# - Validation of config/agents/*, config/skills/*, pkg/* structure
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -71,6 +72,38 @@ kill_process_on_port() {
         fi
     else
         echo "    - No process found using port $port."
+    fi
+}
+
+# ----- JSON validation helpers -----
+validate_json_file() {
+    local file="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "import json; json.load(open('$file'))" 2>/dev/null
+    elif command -v jq >/dev/null 2>&1; then
+        jq empty "$file" >/dev/null 2>&1
+    else
+        echo "    [WARN] No JSON validator (python3/jq). Skipping deep validation of $file"
+        return 1
+    fi
+}
+
+check_agent_json() {
+    local file="$1"
+    if command -v python3 >/dev/null 2>&1; then
+        python3 -c "
+import json, sys
+with open('$file') as f:
+    data = json.load(f)
+    for key in ['name', 'system_prompt', 'tools']:
+        if key not in data:
+            print(f'Missing key: {key}')
+            sys.exit(1)
+" 2>/dev/null
+    elif command -v jq >/dev/null 2>&1; then
+        jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1
+    else
+        return 1
     fi
 }
 
@@ -256,6 +289,65 @@ else
     echo "[FAIL] TELEGRAM_BOT_TOKEN not set"
     ERRORS=$((ERRORS+1))
 fi
+
+# ---- NEW: Configuration & source checks ----
+echo ">  Validating configuration and source files..."
+
+# Agents
+if [ -d config/agents ]; then
+    for f in config/agents/*.json; do
+        [ -f "$f" ] || continue
+        echo "    - Checking $f"
+        if ! validate_json_file "$f"; then
+            echo "      [FAIL] Invalid JSON"
+            ERRORS=$((ERRORS+1))
+        else
+            echo "      [ OK ] Valid JSON"
+            if ! check_agent_json "$f"; then
+                echo "      [FAIL] Missing required keys (name, system_prompt, tools)"
+                ERRORS=$((ERRORS+1))
+            else
+                echo "      [ OK ] Required keys present"
+            fi
+        fi
+    done
+else
+    echo "    [FAIL] config/agents/ directory missing"
+    ERRORS=$((ERRORS+1))
+fi
+
+# Skills (optional but warn if present and invalid)
+if [ -d config/skills ]; then
+    for f in config/skills/*.json; do
+        [ -f "$f" ] || continue
+        echo "    - Checking $f"
+        if ! validate_json_file "$f"; then
+            echo "      [FAIL] Invalid JSON"
+            ERRORS=$((ERRORS+1))
+        else
+            echo "      [ OK ] Valid JSON"
+        fi
+    done
+else
+    echo "    [INFO] No config/skills/ directory (optional)."
+fi
+
+# Source files in pkg/
+echo "    - Checking pkg/ structure..."
+REQUIRED_PKG=(
+    "pkg/agent/agent.go"
+    "pkg/agent/pipeline_llm.go"
+    "pkg/agent/registry.go"
+    "pkg/gateway/gateway.go"
+)
+for file in "${REQUIRED_PKG[@]}"; do
+    if [ -f "$file" ]; then
+        echo "      [ OK ] $file"
+    else
+        echo "      [FAIL] $file MISSING"
+        ERRORS=$((ERRORS+1))
+    fi
+done
 
 # 7. Port availability check (gateway uses 18790) – automatically kill rogue processes
 echo ">  Checking port 18790 availability..."

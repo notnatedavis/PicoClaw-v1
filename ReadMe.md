@@ -26,6 +26,8 @@ PicoClaw acts as the central “brain” connecting a chosen AI model (Groq, Oll
 
 This repository provides a fully modular, script‑driven environment. Everything is free, local‑first, and designed for minimal resource usage.
 
+With Ollama as the engine and PicoClaw as the framework, thinking happens within the model and 95% of everything else happens here.
+
 ---
 
 ## Features
@@ -52,11 +54,22 @@ PicoClaw-v1/
 │   ├── agents/ # custom agents
 │   │   └── assistant.json
 │   ├── skills/ # (future) user‑installed skills
-│   └── config.json
+│   └── config.json     # *
 ├── docs/       # philosophy, roadmap, notes
 │   ├── RepositoryVisionGoal.md
 │   └── ToDo.md
 ├── logs/       # runtime logs (not tracked)
+├── pkg/
+│   ├── agent/
+│   │   ├── agent.go
+│   │   ├── pipeline_llm.go
+│   │   └── registry.go
+│   ├── gateway/
+│   │   └── gateway.go
+│   ├── llm/
+│   │   └── types.go
+│   └── tools/
+│       └── tool.go
 ├── scripts/    # lifecycle management
 │   ├── backup-agent-logs.sh
 │   ├── clean.sh
