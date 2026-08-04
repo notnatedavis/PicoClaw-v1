@@ -50,15 +50,19 @@ PicoClaw-v1/
 │   ├── picoclaw-binary-mac-x86
 │   ├── picoclaw-binary-win-arm64.exe
 │   └── picoclaw-binary-win-x86.exe
+│
 ├── config/
 │   ├── agents/ # custom agents
 │   │   └── assistant.json
 │   ├── skills/ # (future) user‑installed skills
 │   └── config.json     # *
+│
 ├── docs/       # philosophy, roadmap, notes
 │   ├── RepositoryVisionGoal.md
 │   └── ToDo.md
+│
 ├── logs/       # runtime logs (not tracked)
+│
 ├── pkg/
 │   ├── agent/
 │   │   ├── agent.go
@@ -70,6 +74,7 @@ PicoClaw-v1/
 │   │   └── types.go
 │   └── tools/
 │       └── tool.go
+│
 ├── scripts/    # lifecycle management
 │   ├── backup-agent-logs.sh
 │   ├── clean.sh
@@ -81,9 +86,11 @@ PicoClaw-v1/
 │   ├── stop.sh
 │   ├── uninstall.sh
 │   └── update.sh
+│
 ├── workspace/ # agent sandbox
 │   └── agent-sessions/ # per‑agent
 │       └── .gitkeep
+│
 ├── .env.example
 ├── .gitignore
 └── ReadMe.md   # (You are here , hi !)

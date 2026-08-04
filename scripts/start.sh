@@ -65,17 +65,10 @@ validate_json_file() {
 }
 
 check_agent_json() {
+    # Single-line Python to avoid indentation issues across platforms.
     local file="$1"
     if command -v python3 >/dev/null 2>&1; then
-        python3 -c "
-import json, sys
-with open('$file') as f:
-    data = json.load(f)
-    for key in ['name', 'system_prompt', 'tools']:
-        if key not in data:
-            print(f'Missing key: {key}')
-            sys.exit(1)
-" 2>/dev/null
+        python3 -c "import json, sys; d=json.load(open('$file')); missing=[k for k in ['name','system_prompt','tools'] if k not in d]; sys.exit(1 if missing else 0)" 2>/dev/null
     elif command -v jq >/dev/null 2>&1; then
         jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1
     else

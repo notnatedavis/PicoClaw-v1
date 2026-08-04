@@ -1,4 +1,5 @@
-// pkg/llm/types.go
+//   pkg/llm/types.go
+
 package llm
 
 import "context"

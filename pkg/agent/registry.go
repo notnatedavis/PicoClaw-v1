@@ -1,4 +1,5 @@
-// registry.go (excerpt)
+//   pkg/agent/registry.go
+
 package agent
 
 import (

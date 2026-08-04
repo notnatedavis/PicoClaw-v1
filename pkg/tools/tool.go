@@ -1,4 +1,5 @@
-// pkg/tools/tool.go
+//   pkg/tools/tool.go
+
 package tools
 
 import (

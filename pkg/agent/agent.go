@@ -1,4 +1,5 @@
-// pkg/agent/agent.go
+//   pkg/agent/agent.go
+
 package agent
 
 import (
@@ -13,13 +14,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Session holds the conversation state for an agent.
+// Session holds the conversation state for an agent
 type Session struct {
 	ID     string
 	Memory map[string]interface{} // simple key-value memory, extend as needed
 }
 
-// AgentConfig carries the initialisation parameters for an agent.
+// AgentConfig carries initialisation params for agent
 type AgentConfig struct {
 	ID           string
 	Name         string
@@ -29,7 +30,7 @@ type AgentConfig struct {
 	Workspace    string
 }
 
-// Agent is a self-contained AI agent.
+// Agent is self-contained AI agent
 type Agent struct {
 	ID           string
 	Name         string
@@ -45,7 +46,7 @@ type Agent struct {
 	registry     *Registry // for accessing other agents
 }
 
-// NewAgent creates and fully initialises an Agent.
+// NewAgent creates + fully initialises an Agent
 func NewAgent(cfg AgentConfig, llmClient llm.Client, toolReg *tools.Registry, logger zerolog.Logger, agentReg *Registry) *Agent {
 	pipeline := NewLLMPipeline(llmClient, toolReg, logger)
 	return &Agent{
@@ -75,7 +76,7 @@ func (a *Agent) runTurn(ctx context.Context, userMsg string, session *Session) (
 		return "", fmt.Errorf("LLM pipeline error: %w", err)
 	}
 
-	// Handle tool calls if any (simplified: only first call)
+	// handle tool calls if any
 	if len(resp.ToolCalls) > 0 {
 		tc := resp.ToolCalls[0]
 		tool := a.toolRegistry.Get(tc.Name)

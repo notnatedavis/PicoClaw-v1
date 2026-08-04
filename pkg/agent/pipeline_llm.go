@@ -1,4 +1,4 @@
-// pkg/agent/pipeline_llm.go
+//   pkg/agent/pipeline_llm.go
 
 package agent
 
@@ -59,7 +59,7 @@ func (p *LLMPipeline) Run(ctx context.Context, messages []llm.Message, tools []l
 		FinishReason: resp.FinishReason,
 	}
 
-	// standard tool call extraction (OpenAI style)
+	// tool call extraction
 	if resp.ToolCalls != nil {
 		for _, tc := range resp.ToolCalls {
 			response.ToolCalls = append(response.ToolCalls, ToolCall{
@@ -69,7 +69,7 @@ func (p *LLMPipeline) Run(ctx context.Context, messages []llm.Message, tools []l
 		}
 	}
 
-	// If no standard tool calls were found, try to detect a JSON tool call in the content.
+	// if no tool calls were found, try to detect a JSON tool call in the content.
 	if len(response.ToolCalls) == 0 {
 		trimmed := strings.TrimSpace(raw)
 		if strings.HasPrefix(trimmed, "{") && strings.HasSuffix(trimmed, "}") {
