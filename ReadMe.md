@@ -103,16 +103,17 @@ PicoClaw-v1/
    git clone <https://github.com/notnatedavis/PicoClaw-v1.git> && cd PicoClaw-v1
     ```
 
-2. **Set up environment**
+2. **Set up environment & Prerequisites**
     ```bash
     # create new file '.env' clone '.env.example'
-    # 
+    # ensure Ollama is installed locally
     ```
 
 3. **Run the full setup**
     Open Git Bash (win) / terminal (mac)
     ```bash
    chmod +x scripts/*.sh
+   
    bash scripts/setup.sh
    bash scripts/health-check.sh
    ```

@@ -1,5 +1,8 @@
 //   pkg/agent/agent.go
 
+//   Package agent provides the core AI agent implementation, including session management,
+//   message processing, tool calling, and optional review by a secondary agent
+
 package agent
 
 import (
@@ -14,23 +17,25 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Session holds the conversation state for an agent
+// Session holds the conversational state for a single agent interaction
+// can be extended to store history, metadata, or other per-session data
 type Session struct {
-	ID     string
-	Memory map[string]interface{} // simple key-value memory, extend as needed
+	ID     string                 // unique session identifier
+	Memory map[string]interface{} // simple key-value store for ephemeral memory
 }
 
-// AgentConfig carries initialisation params for agent
+// AgentConfig carries the initialisation parameters for creating an Agent
 type AgentConfig struct {
-	ID           string
-	Name         string
-	Model        string
-	SystemPrompt string
-	Tools        []string // tool names this agent is allowed to use
-	Workspace    string
+	ID           string   // unique agent identifier
+	Name         string   // human-readable name
+	Model        string   // LLM model name (e.g., "llama3.2:3b")
+	SystemPrompt string   // system prompt that defines the agent's persona
+	Tools        []string // list of tool names this agent is allowed to use
+	Workspace    string   // working directory for file operations
 }
 
-// Agent is self-contained AI agent
+// Agent is a self-contained AI agent with its own configuration, LLM client,
+// tool registry, and pipeline. processes user messages and may invoke tools
 type Agent struct {
 	ID           string
 	Name         string
@@ -39,14 +44,15 @@ type Agent struct {
 	Tools        []string
 	Workspace    string
 
-	llmClient    llm.Client
-	toolRegistry *tools.Registry
-	pipeline     *LLMPipeline
-	logger       zerolog.Logger
-	registry     *Registry // for accessing other agents
+	llmClient    llm.Client      // client for interacting with the LLM provider
+	toolRegistry *tools.Registry // registry of available tools
+	pipeline     *LLMPipeline    // pipeline that orchestrates LLM calls and tool execution
+	logger       zerolog.Logger  // structured logger with agent context
+	registry     *Registry       // reference to the global agent registry (for cross-agent calls)
 }
 
-// NewAgent creates + fully initialises an Agent
+// NewAgent creates and fully initialises a new Agent instance
+// It constructs the LLM pipeline and sets up the logger with the agent ID
 func NewAgent(cfg AgentConfig, llmClient llm.Client, toolReg *tools.Registry, logger zerolog.Logger, agentReg *Registry) *Agent {
 	pipeline := NewLLMPipeline(llmClient, toolReg, logger)
 	return &Agent{
@@ -64,21 +70,35 @@ func NewAgent(cfg AgentConfig, llmClient llm.Client, toolReg *tools.Registry, lo
 	}
 }
 
-// runTurn executes a single turn with the user message.
+// process is the public entry point for processing a user message
+// executes a single turn and returns the final answer
+func (a *Agent) Process(ctx context.Context, userMsg string, session *Session) (string, error) {
+	return a.runTurn(ctx, userMsg, session)
+}
+
+// runTurn handles the complete processing of one user message :
+//  1. build the message list (system + user + history from session)
+//  2. retrieve the tool definitions allowed for this agent
+//  3. call the LLM pipeline to get a response (which may include tool calls)
+//  4. if a tool call is requested, execute the tool and return its result
+//  5. optionally, pass the answer through a review agent for validation
+//  6. return the final answer
 func (a *Agent) runTurn(ctx context.Context, userMsg string, session *Session) (string, error) {
 	a.logger.Info().Msg("Processing turn")
 
+	// 1: build the message list for the LLM
 	messages := a.buildMessages(session, userMsg)
 	toolDefs := a.getToolDefs()
 
+	// 2: call the LLM pipeline
 	resp, err := a.pipeline.Run(ctx, messages, toolDefs)
 	if err != nil {
 		return "", fmt.Errorf("LLM pipeline error: %w", err)
 	}
 
-	// handle tool calls if any
+	// 3: handle any tool calls requested by the model
 	if len(resp.ToolCalls) > 0 {
-		tc := resp.ToolCalls[0]
+		tc := resp.ToolCalls[0] // only one tool call per turn (simplified)
 		tool := a.toolRegistry.Get(tc.Name)
 		if tool == nil {
 			return "", fmt.Errorf("tool %s not found", tc.Name)
@@ -92,12 +112,13 @@ func (a *Agent) runTurn(ctx context.Context, userMsg string, session *Session) (
 		return final, nil
 	}
 
+	// 4: extract the plain-text answer (if no tool call)
 	answer := resp.Content
 	if answer == "" {
 		answer = "I'm sorry, I didn't understand that."
 	}
 
-	// ---- REVIEW STEP ----
+	// 5: (Optional) validate/refine the answer via a review agent
 	if a.registry != nil {
 		reviewAgent := a.registry.Get("review")
 		if reviewAgent != nil {
@@ -113,12 +134,16 @@ func (a *Agent) runTurn(ctx context.Context, userMsg string, session *Session) (
 	return answer, nil
 }
 
-// callReviewAgent invokes the review agent with the original query and candidate answer.
+// callReviewAgent invokes a separate "review" agent with the original query
+// and the candidate answer. review agent can correct or refine the answer,
+// or even execute additional tools if needed
 func (a *Agent) callReviewAgent(ctx context.Context, review *Agent, query, candidate string) (string, error) {
+	// create a fresh session for the review agent.
 	reviewSession := &Session{
 		ID:     fmt.Sprintf("review-%s", time.Now().Format("20060102150405")),
 		Memory: map[string]interface{}{},
 	}
+	// build a prompt instructing the reviewer to validate and improve the answer.
 	prompt := fmt.Sprintf(
 		"Original query: %s\n\nAssistant's raw answer: %s\n\nPlease validate and, if needed, refine the answer. If the answer is a tool call (JSON), execute it and return the actual result. Otherwise, ensure the answer is correct and polite. Return only the final answer, nothing else.",
 		query, candidate,
@@ -130,18 +155,22 @@ func (a *Agent) callReviewAgent(ctx context.Context, review *Agent, query, candi
 	return reviewed, nil
 }
 
-// buildMessages creates the message list from the session memory and user message.
+// buildMessages constructs the full message list for the LLM request
+// includes the system prompt and the current user message
+// (In a full implementation, it would also include historical messages from session.Memory.)
 func (a *Agent) buildMessages(session *Session, userMsg string) []llm.Message {
 	messages := []llm.Message{
 		{Role: "system", Content: a.SystemPrompt},
 	}
-	// In a full implementation, session.Memory would hold previous turns.
-	// For simplicity we only add the current user message.
+
+	// TODO: add previous conversation history from session.Memory if needed.
+	
 	messages = append(messages, llm.Message{Role: "user", Content: userMsg})
 	return messages
 }
 
-// getToolDefs returns the list of tool definitions that this agent may use.
+// getToolDefs returns the list of tool definitions that this agent is allowed to use
+// filters the global tool registry by the agent's configured tool names
 func (a *Agent) getToolDefs() []llm.ToolDef {
 	var defs []llm.ToolDef
 	for _, name := range a.Tools {
