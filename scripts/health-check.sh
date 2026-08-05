@@ -76,10 +76,11 @@ kill_process_on_port() {
 }
 
 # ----- JSON validation helpers -----
+# Use utf-8-sig to gracefully handle a leading BOM that may be present on Windows copies
 validate_json_file() {
     local file="$1"
     if command -v python3 >/dev/null 2>&1; then
-        python3 -c "import json; json.load(open('$file'))" 2>/dev/null
+        python3 -c "import json; json.load(open('$file', encoding='utf-8-sig'))" 2>/dev/null
     elif command -v jq >/dev/null 2>&1; then
         jq empty "$file" >/dev/null 2>&1
     else
@@ -89,10 +90,11 @@ validate_json_file() {
 }
 
 check_agent_json() {
-    # Uses a single-line Python command to avoid indentation issues on all platforms.
+    # Single‑line Python command avoids indentation issues on all platforms.
+    # Use utf-8-sig to handle a possible BOM.
     local file="$1"
     if command -v python3 >/dev/null 2>&1; then
-        python3 -c "import json, sys; d=json.load(open('$file')); missing=[k for k in ['name','system_prompt','tools'] if k not in d]; sys.exit(1 if missing else 0)" 2>/dev/null
+        python3 -c "import json, sys; d=json.load(open('$file', encoding='utf-8-sig')); missing=[k for k in ['name','system_prompt','tools'] if k not in d]; sys.exit(1 if missing else 0)" 2>/dev/null
     elif command -v jq >/dev/null 2>&1; then
         jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1
     else
@@ -286,6 +288,20 @@ fi
 
 # ---- NEW: Configuration & source checks ----
 echo ">  Validating configuration and source files..."
+
+# validate config/config.json
+if [ -f config/config.json ]; then
+    echo "    - Checking config/config.json"
+    if validate_json_file config/config.json; then
+        echo "      [ OK ] Valid JSON"
+    else
+        echo "      [FAIL] Invalid JSON in config/config.json"
+        ERRORS=$((ERRORS+1))
+    fi
+else
+    echo "    [FAIL] config/config.json is missing"
+    ERRORS=$((ERRORS+1))
+fi
 
 # Agents
 if [ -d config/agents ]; then

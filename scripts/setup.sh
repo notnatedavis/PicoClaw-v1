@@ -58,10 +58,11 @@ stop_ollama_if_running() {
 }
 
 # ----- JSON validation helper (requires python3 or jq) -----
+# Use utf-8-sig to gracefully handle a leading BOM that may be present on Windows copies
 validate_json_file() {
     local file="$1"
     if command -v python3 >/dev/null 2>&1; then
-        python3 -c "import json; json.load(open('$file'))" 2>/dev/null
+        python3 -c "import json; json.load(open('$file', encoding='utf-8-sig'))" 2>/dev/null
     elif command -v jq >/dev/null 2>&1; then
         jq empty "$file" >/dev/null 2>&1
     else
@@ -71,10 +72,11 @@ validate_json_file() {
 }
 
 check_agent_json() {
-    # Single-line Python avoids indentation problems on all platforms.
+    # Single‑line Python avoids indentation problems on all platforms.
+    # Use utf-8-sig to handle a possible BOM.
     local file="$1"
     if command -v python3 >/dev/null 2>&1; then
-        python3 -c "import json, sys; d=json.load(open('$file')); missing=[k for k in ['name','system_prompt','tools'] if k not in d]; sys.exit(1 if missing else 0)" 2>/dev/null
+        python3 -c "import json, sys; d=json.load(open('$file', encoding='utf-8-sig')); missing=[k for k in ['name','system_prompt','tools'] if k not in d]; sys.exit(1 if missing else 0)" 2>/dev/null
     elif command -v jq >/dev/null 2>&1; then
         jq -e '.name and .system_prompt and .tools' "$file" >/dev/null 2>&1
     else
@@ -216,6 +218,20 @@ for file in "${REQUIRED_PKG_FILES[@]}"; do
         FAILURES=$((FAILURES+1))
     fi
 done
+
+# validate main config.json
+if [ -f config/config.json ]; then
+    echo "    - Checking config/config.json"
+    if ! validate_json_file config/config.json; then
+        echo "      [FAIL] Invalid JSON in config/config.json"
+        FAILURES=$((FAILURES+1))
+    else
+        echo "      [ OK ] Valid JSON"
+    fi
+else
+    echo "    [ERROR] config/config.json missing"
+    exit 1
+fi
 
 # Final verdict
 if [ $FAILURES -gt 0 ]; then

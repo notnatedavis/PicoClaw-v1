@@ -13,4 +13,7 @@
 
 - (FUTURE) :
     - skills & agents
+        - /docx skill
+        - /xlx skill
+        - google cal skill
     - workspace/

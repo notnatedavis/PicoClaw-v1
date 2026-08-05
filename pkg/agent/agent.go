@@ -1,13 +1,12 @@
 //   pkg/agent/agent.go
 
 //   Package agent provides the core AI agent implementation, including session management,
-//   message processing, tool calling, and optional review by a secondary agent
+//   message processing, tool calling, and conversational history.
 
 package agent
 
 import (
 	"context"
-	"encoding/json"
 	"fmt"
 	"strings"
 	"time"
@@ -17,25 +16,26 @@ import (
 	"github.com/rs/zerolog"
 )
 
-// Session holds the conversational state for a single agent interaction
-// can be extended to store history, metadata, or other per-session data
+// Session holds the conversational state for a single agent interaction.
+// The Memory map stores arbitrary data, including a "history" slice of llm.Message.
 type Session struct {
-	ID     string                 // unique session identifier
+	ID     string                 // unique session identifier (e.g., chat_id)
 	Memory map[string]interface{} // simple key-value store for ephemeral memory
 }
 
-// AgentConfig carries the initialisation parameters for creating an Agent
+// AgentConfig carries the initialisation parameters for creating an Agent.
 type AgentConfig struct {
-	ID           string   // unique agent identifier
+	ID           string   // unique agent identifier (lowercase)
 	Name         string   // human-readable name
 	Model        string   // LLM model name (e.g., "llama3.2:3b")
 	SystemPrompt string   // system prompt that defines the agent's persona
 	Tools        []string // list of tool names this agent is allowed to use
 	Workspace    string   // working directory for file operations
+	MaxTokens    int      // maximum tokens for LLM responses
 }
 
 // Agent is a self-contained AI agent with its own configuration, LLM client,
-// tool registry, and pipeline. processes user messages and may invoke tools
+// tool registry, and pipeline. processes user messages and may invoke tools.
 type Agent struct {
 	ID           string
 	Name         string
@@ -44,17 +44,16 @@ type Agent struct {
 	Tools        []string
 	Workspace    string
 
-	llmClient    llm.Client      // client for interacting with the LLM provider
-	toolRegistry *tools.Registry // registry of available tools
-	pipeline     *LLMPipeline    // pipeline that orchestrates LLM calls and tool execution
-	logger       zerolog.Logger  // structured logger with agent context
-	registry     *Registry       // reference to the global agent registry (for cross-agent calls)
+	llmClient    llm.Client
+	toolRegistry *tools.Registry
+	pipeline     *LLMPipeline
+	logger       zerolog.Logger
+	registry     *Registry // reference to the global agent registry (for future cross-agent calls)
 }
 
-// NewAgent creates and fully initialises a new Agent instance
-// It constructs the LLM pipeline and sets up the logger with the agent ID
+// NewAgent creates and fully initialises a new Agent instance.
 func NewAgent(cfg AgentConfig, llmClient llm.Client, toolReg *tools.Registry, logger zerolog.Logger, agentReg *Registry) *Agent {
-	pipeline := NewLLMPipeline(llmClient, toolReg, logger)
+	pipeline := NewLLMPipeline(llmClient, toolReg, logger, cfg.MaxTokens)
 	return &Agent{
 		ID:           cfg.ID,
 		Name:         cfg.Name,
@@ -70,107 +69,110 @@ func NewAgent(cfg AgentConfig, llmClient llm.Client, toolReg *tools.Registry, lo
 	}
 }
 
-// process is the public entry point for processing a user message
-// executes a single turn and returns the final answer
+// Process is the public entry point for processing a user message within a session.
 func (a *Agent) Process(ctx context.Context, userMsg string, session *Session) (string, error) {
 	return a.runTurn(ctx, userMsg, session)
 }
 
 // runTurn handles the complete processing of one user message :
-//  1. build the message list (system + user + history from session)
+//  1. build the message list (system + history + user)
 //  2. retrieve the tool definitions allowed for this agent
 //  3. call the LLM pipeline to get a response (which may include tool calls)
-//  4. if a tool call is requested, execute the tool and return its result
-//  5. optionally, pass the answer through a review agent for validation
+//  4. if tool calls are requested, execute all tools, feed results back to the LLM,
+//     and obtain a final natural-language answer
+//  5. update session history with the exchange
 //  6. return the final answer
 func (a *Agent) runTurn(ctx context.Context, userMsg string, session *Session) (string, error) {
 	a.logger.Info().Msg("Processing turn")
 
-	// 1: build the message list for the LLM
+	// 1: build messages including conversation history
 	messages := a.buildMessages(session, userMsg)
 	toolDefs := a.getToolDefs()
 
-	// 2: call the LLM pipeline
+	// 2: first LLM call
 	resp, err := a.pipeline.Run(ctx, messages, toolDefs)
 	if err != nil {
 		return "", fmt.Errorf("LLM pipeline error: %w", err)
 	}
 
-	// 3: handle any tool calls requested by the model
+	// 3: handle tool calls if any
+	finalAnswer := resp.Content
 	if len(resp.ToolCalls) > 0 {
-		tc := resp.ToolCalls[0] // only one tool call per turn (simplified)
-		tool := a.toolRegistry.Get(tc.Name)
-		if tool == nil {
-			return "", fmt.Errorf("tool %s not found", tc.Name)
-		}
-		result, err := tool.Execute(ctx, tc.Parameters)
-		if err != nil {
-			return "", fmt.Errorf("tool execution failed: %w", err)
-		}
-		final := fmt.Sprintf("%v", result)
-		a.logger.Info().Str("result", final).Msg("Tool executed successfully")
-		return final, nil
-	}
-
-	// 4: extract the plain-text answer (if no tool call)
-	answer := resp.Content
-	if answer == "" {
-		answer = "I'm sorry, I didn't understand that."
-	}
-
-	// 5: (Optional) validate/refine the answer via a review agent
-	if a.registry != nil {
-		reviewAgent := a.registry.Get("review")
-		if reviewAgent != nil {
-			reviewed, err := a.callReviewAgent(ctx, reviewAgent, userMsg, answer)
-			if err != nil {
-				a.logger.Warn().Err(err).Msg("Review agent failed, using original answer")
-			} else {
-				answer = reviewed
+		// Execute all tool calls and collect results
+		var toolResults []string
+		for _, tc := range resp.ToolCalls {
+			tool := a.toolRegistry.Get(tc.Name)
+			if tool == nil {
+				toolResults = append(toolResults, fmt.Sprintf("Tool %s not available", tc.Name))
+				continue
 			}
+			result, err := tool.Execute(ctx, tc.Parameters)
+			if err != nil {
+				toolResults = append(toolResults, fmt.Sprintf("Error executing %s: %v", tc.Name, err))
+				continue
+			}
+			toolResults = append(toolResults, fmt.Sprintf("Tool %s result: %v", tc.Name, result))
+			a.logger.Info().Str("tool", tc.Name).Interface("result", result).Msg("Tool executed")
+		}
+
+		// Build a follow-up message with tool results and ask LLM for a summary
+		combined := strings.Join(toolResults, "\n")
+		followUpMsg := llm.Message{Role: "user", Content: fmt.Sprintf("Tool execution results:\n%s\n\nPlease summarise these results in a natural, concise reply to the user.", combined)}
+		messages = append(messages, followUpMsg)
+
+		// Second LLM call to produce the final answer
+		finalResp, err := a.pipeline.Run(ctx, messages, toolDefs)
+		if err != nil {
+			// fallback: return raw tool results as answer
+			a.logger.Warn().Err(err).Msg("Second LLM call failed, returning raw tool output")
+			finalAnswer = combined
+		} else {
+			finalAnswer = finalResp.Content
 		}
 	}
 
-	return answer, nil
+	// 4: update session history
+	a.updateHistory(session, userMsg, finalAnswer)
+
+	return finalAnswer, nil
 }
 
-// callReviewAgent invokes a separate "review" agent with the original query
-// and the candidate answer. review agent can correct or refine the answer,
-// or even execute additional tools if needed
-func (a *Agent) callReviewAgent(ctx context.Context, review *Agent, query, candidate string) (string, error) {
-	// create a fresh session for the review agent.
-	reviewSession := &Session{
-		ID:     fmt.Sprintf("review-%s", time.Now().Format("20060102150405")),
-		Memory: map[string]interface{}{},
-	}
-	// build a prompt instructing the reviewer to validate and improve the answer.
-	prompt := fmt.Sprintf(
-		"Original query: %s\n\nAssistant's raw answer: %s\n\nPlease validate and, if needed, refine the answer. If the answer is a tool call (JSON), execute it and return the actual result. Otherwise, ensure the answer is correct and polite. Return only the final answer, nothing else.",
-		query, candidate,
-	)
-	reviewed, err := review.runTurn(ctx, prompt, reviewSession)
-	if err != nil {
-		return candidate, err
-	}
-	return reviewed, nil
-}
-
-// buildMessages constructs the full message list for the LLM request
-// includes the system prompt and the current user message
-// (In a full implementation, it would also include historical messages from session.Memory.)
+// buildMessages constructs the full message list for the LLM request,
+// including the system prompt, conversation history, and the current user message.
 func (a *Agent) buildMessages(session *Session, userMsg string) []llm.Message {
-	messages := []llm.Message{
-		{Role: "system", Content: a.SystemPrompt},
+	var messages []llm.Message
+	messages = append(messages, llm.Message{Role: "system", Content: a.SystemPrompt})
+
+	// retrieve history from session memory
+	if history, ok := session.Memory["history"]; ok {
+		if histSlice, ok := history.([]llm.Message); ok {
+			messages = append(messages, histSlice...)
+		}
 	}
 
-	// TODO: add previous conversation history from session.Memory if needed.
-	
 	messages = append(messages, llm.Message{Role: "user", Content: userMsg})
 	return messages
 }
 
-// getToolDefs returns the list of tool definitions that this agent is allowed to use
-// filters the global tool registry by the agent's configured tool names
+// updateHistory appends the user message and agent reply to the session history.
+func (a *Agent) updateHistory(session *Session, userMsg, agentReply string) {
+	var hist []llm.Message
+	if existing, ok := session.Memory["history"]; ok {
+		if h, ok := existing.([]llm.Message); ok {
+			hist = h
+		}
+	}
+	hist = append(hist, llm.Message{Role: "user", Content: userMsg})
+	hist = append(hist, llm.Message{Role: "assistant", Content: agentReply})
+	// limit history length to prevent token overflow (keep last 20 exchanges)
+	const maxHistory = 20
+	if len(hist) > maxHistory {
+		hist = hist[len(hist)-maxHistory:]
+	}
+	session.Memory["history"] = hist
+}
+
+// getToolDefs returns the list of tool definitions that this agent is allowed to use.
 func (a *Agent) getToolDefs() []llm.ToolDef {
 	var defs []llm.ToolDef
 	for _, name := range a.Tools {
