@@ -19,14 +19,14 @@ A complete, free, lightweight ai agent framework built around [PicoClaw](https:/
 
 ## Introduction
 
-PicoClaw acts as the central “brain” connecting a chosen AI model (Groq, Ollama, etc.) to the real world:
-- **Communicate** via Telegram, Discord, Slack, and more.
-- **Act** through built‑in tools: filesystem, shell, web search.
-- **Remember** conversations in a local SQLite database.
+PicoClaw acts as the central “brain” connecting a chosen AI model (Ollama, HuggingFace) to the real world :
+- **Communicate** via Telegram
+- **Act** through built‑in tools like filesystem, shell, web search
+- **Remember** conversations in a local SQLite database
 
-This repository provides a fully modular, script‑driven environment. Everything is free, local‑first, and designed for minimal resource usage.
+This repository provides a fully modular, script‑driven environment. Everything is free, local‑first, and designed for minimal resource usage
 
-With Ollama as the engine and PicoClaw as the framework, thinking happens within the model and 95% of everything else happens here.
+With Ollama as the engine and PicoClaw as the framework, thinking happens within the model and 95% of everything else happens here
 
 ---
 
