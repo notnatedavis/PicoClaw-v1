@@ -4,6 +4,7 @@
 # Gracefully stops the PicoClaw gateway process.
 # Also kills any rogue process occupying port 18790.
 # 2026‑07‑28: Removes the temporary runtime config created by start.sh.
+# 2026‑08‑02: Clears workspace sessions and memory directories (excluding .gitkeep).
 
 set -euo pipefail
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
@@ -97,6 +98,15 @@ RUNTIME_CONFIG="$REPO_ROOT/config/runtime-config.json"
 if [ -f "$RUNTIME_CONFIG" ]; then
     rm -f "$RUNTIME_CONFIG"
     echo "Removed temporary runtime config: $RUNTIME_CONFIG"
+fi
+
+# 4. Clear workspace sessions and memory directories (preserving .gitkeep files)
+echo "Clearing workspace sessions and memory..."
+if [ -d workspace/sessions ]; then
+    find workspace/sessions/ -mindepth 1 -maxdepth 1 -not -name '.gitkeep' -exec rm -rf {} \;
+fi
+if [ -d workspace/memory ]; then
+    find workspace/memory/ -mindepth 1 -maxdepth 1 -not -name '.gitkeep' -exec rm -rf {} \;
 fi
 
 echo "Stop complete."

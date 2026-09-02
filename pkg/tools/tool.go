@@ -44,3 +44,13 @@ func (r *Registry) List() []string {
 	}
 	return names
 }
+
+// Clone returns a new Registry containing the same tools.
+// Useful when an agent needs a copy of the registry with agent‑specific tool overrides.
+func (r *Registry) Clone() *Registry {
+	clone := NewRegistry()
+	for name, tool := range r.tools {
+		clone.Register(name, tool)
+	}
+	return clone
+}

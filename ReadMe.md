@@ -53,7 +53,9 @@ PicoClaw-v1/
 │
 ├── config/
 │   ├── agents/ # custom agents
-│   │   └── assistant.json
+│   │   ├── admin.json
+│   │   ├── default.json
+│   │   └── reviewer.json
 │   ├── skills/ # (future) user‑installed skills
 │   └── config.json     # *
 │
@@ -71,9 +73,18 @@ PicoClaw-v1/
 │   ├── gateway/
 │   │   └── gateway.go
 │   ├── llm/
+│   │   ├── openai_client.go
 │   │   └── types.go
 │   └── tools/
-│       └── tool.go
+│       ├── calculator.go
+│       ├── date_time.go
+│       ├── file_search.go
+│       ├── http_request.go
+│       ├── memory.go
+│       ├── system_info.go
+│       ├── tool.go
+│       ├── weather.go
+│       └── web_search.go
 │
 ├── scripts/    # lifecycle management
 │   ├── backup-agent-logs.sh

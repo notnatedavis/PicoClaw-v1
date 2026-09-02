@@ -35,6 +35,11 @@ type Config struct {
 			ModelName           string `json:"model_name"`
 			MaxTokens           int    `json:"max_tokens"`
 			MaxToolIterations   int    `json:"max_tool_iterations"`
+			Review              struct {
+				Enabled       bool   `json:"enabled"`
+				MaxIterations int    `json:"max_iterations"`
+				Agent         string `json:"agent"`
+			} `json:"review"`
 		} `json:"defaults"`
 		List []struct {
 			Name string `json:"name"`
@@ -70,6 +75,16 @@ type Config struct {
 		I2C           ToolsEnabled `json:"i2c"`
 		Serial        ToolsEnabled `json:"serial"`
 		SPI           ToolsEnabled `json:"spi"`
+
+		// Newly implemented tools
+		DateTime     ToolsEnabled `json:"date_time"`
+		Memory       ToolsEnabled `json:"memory"`
+		WebSearch    ToolsEnabled `json:"web_search"`
+		HTTPRequest  ToolsEnabled `json:"http_request"`
+		FileSearch   ToolsEnabled `json:"file_search"`
+		Weather      ToolsEnabled `json:"weather"`
+		Calculator   ToolsEnabled `json:"calculator"`
+		SystemInfo   ToolsEnabled `json:"system_info"`
 	} `json:"tools"`
 }
 
@@ -84,6 +99,7 @@ type AgentFileConfig struct {
 	SystemPrompt string   `json:"system_prompt"`
 	Tools        []string `json:"tools"`
 	Memory       bool     `json:"memory"`
+	Internal     bool     `json:"internal"` // if true, agent is not routable via /chat
 }
 
 // Gateway is the main application coordinator. It loads the configuration,
@@ -92,14 +108,14 @@ type Gateway struct {
 	config        Config
 	agentRegistry *agent.Registry
 	logger        zerolog.Logger
-	llmClient     llm.Client // set during initialisation (e.g., Ollama client)
-	sessions      map[string]*agent.Session // session store keyed by session ID
+	llmClient     llm.Client                    // set during initialisation (e.g., Ollama client)
+	sessions      map[string]*agent.Session     // session store keyed by session ID
 	sessionsMu    sync.Mutex
+	reviewAgent   *agent.Agent                  // internal review agent (may be nil)
 }
 
 // NewGateway reads the configuration file at configPath and constructs a Gateway instance
 func NewGateway(configPath string, logger zerolog.Logger) (*Gateway, error) {
-	// Read and parse config file
 	data, err := os.ReadFile(configPath)
 	if err != nil {
 		return nil, fmt.Errorf("could not read config file %s: %w", configPath, err)
@@ -118,10 +134,10 @@ func NewGateway(configPath string, logger zerolog.Logger) (*Gateway, error) {
 
 // InitAgents loads all agent definitions from the filesystem, builds the tool registry,
 // creates each agent with its configuration, and sets up the LLM client.
+// If review is enabled, it also loads the review agent and injects it into all main agents.
 func (g *Gateway) InitAgents() error {
 	// 1: Build the global tool registry and register all configured tools
 	toolReg := tools.NewRegistry()
-	g.registerConfiguredTools(toolReg)
 
 	// 2: Instantiate the LLM client from the first model_list entry
 	if len(g.config.ModelList) == 0 {
@@ -149,7 +165,10 @@ func (g *Gateway) InitAgents() error {
 		baseWorkspace = "./workspace"
 	}
 
-	// 4: Load each agent from the list
+	// Register tools (real implementations and stubs) with the base workspace
+	g.registerConfiguredTools(toolReg, baseWorkspace)
+
+	// 4: Load each main agent from the list
 	for _, entry := range g.config.Agents.List {
 		agentFilePath := filepath.Join("config", "agents", entry.Name+".json")
 		data, err := os.ReadFile(agentFilePath)
@@ -164,6 +183,39 @@ func (g *Gateway) InitAgents() error {
 		// enforce lowercase agent ID (case‑insensitive routing)
 		agentID := strings.ToLower(afc.Name)
 
+		// Add new tools to the agent's tool list if they are enabled globally
+		// and not already explicitly listed in the agent config.
+		if g.config.Tools.DateTime.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "date_time")
+		}
+		if g.config.Tools.Memory.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "memory")
+		}
+		if g.config.Tools.WebSearch.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "web_search")
+		}
+		if g.config.Tools.HTTPRequest.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "http_request")
+		}
+		if g.config.Tools.FileSearch.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "file_search")
+		}
+		if g.config.Tools.Weather.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "weather")
+		}
+		if g.config.Tools.Calculator.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "calculator")
+		}
+		if g.config.Tools.SystemInfo.Enabled {
+			afc.Tools = appendIfMissing(afc.Tools, "system_info")
+		}
+
+		// Log the agent's full tool list for verification
+		g.logger.Info().
+			Str("agent", agentID).
+			Strs("tools", afc.Tools).
+			Msg("Agent tool list")
+
 		// build the agent configuration
 		agentCfg := agent.AgentConfig{
 			ID:           agentID,
@@ -175,71 +227,179 @@ func (g *Gateway) InitAgents() error {
 			MaxTokens:    maxTokens,
 		}
 
-		// create the agent with the real LLM client
 		a := agent.NewAgent(agentCfg, g.llmClient, toolReg, g.logger, g.agentRegistry)
 		g.agentRegistry.Register(a)
 		g.logger.Info().Str("agent", agentID).Msg("Agent registered")
 	}
-	return nil
-}
 
-// registerConfiguredTools adds stub implementations for every tool that is enabled in the configuration.
-// This prevents "tool not found" errors when the LLM requests a tool.
-func (g *Gateway) registerConfiguredTools(toolReg *tools.Registry) {
-	// A minimal stub that satisfies tools.Tool
-	type stubTool struct {
-		name        string
-		description string
-		params      map[string]interface{}
-	}
-	execStub := func(name string, params map[string]interface{}) (interface{}, error) {
-		return fmt.Sprintf("[%s stub] called with params: %v", name, params), nil
+	// 5: Load review agent if enabled
+	if g.config.Agents.Defaults.Review.Enabled {
+		reviewName := g.config.Agents.Defaults.Review.Agent
+		if reviewName == "" {
+			reviewName = "reviewer"
+		}
+		agentFilePath := filepath.Join("config", "agents", reviewName+".json")
+		data, err := os.ReadFile(agentFilePath)
+		if err != nil {
+			return fmt.Errorf("could not read review agent config %s: %w", agentFilePath, err)
+		}
+		var afc AgentFileConfig
+		if err := json.Unmarshal(data, &afc); err != nil {
+			return fmt.Errorf("could not parse review agent config %s: %w", agentFilePath, err)
+		}
+
+		reviewID := strings.ToLower(afc.Name)
+		reviewAgentCfg := agent.AgentConfig{
+			ID:           reviewID,
+			Name:         afc.Name,
+			Model:        model,
+			SystemPrompt: afc.SystemPrompt,
+			Tools:        nil, // review agent should not use tools
+			Workspace:    filepath.Join(baseWorkspace, "agent-sessions", reviewID),
+			MaxTokens:    maxTokens,
+		}
+		g.reviewAgent = agent.NewAgent(reviewAgentCfg, g.llmClient, toolReg, g.logger, g.agentRegistry)
+
+		maxIter := g.config.Agents.Defaults.Review.MaxIterations
+		if maxIter <= 0 {
+			maxIter = 3 // default
+		}
+		// Inject review agent and max iterations into all main agents
+		for _, entry := range g.config.Agents.List {
+			agentID := strings.ToLower(entry.Name)
+			if a := g.agentRegistry.Get(agentID); a != nil {
+				a.SetReviewAgent(g.reviewAgent)
+				a.SetMaxReviewIterations(maxIter)
+			}
+		}
+		g.logger.Info().Str("review_agent", reviewID).Int("max_iterations", maxIter).Msg("Review agent enabled")
 	}
 
-	register := func(enabled bool, name, desc string, params map[string]interface{}) {
-		if enabled {
-			toolReg.Register(name, &stubTool{name: name, description: desc, params: params})
-			g.logger.Debug().Str("tool", name).Msg("Registered tool")
+	// 6: Validate that every agent's tools are present in the tool registry
+	g.logger.Info().Msg("Validating agent tool availability...")
+	for _, entry := range g.config.Agents.List {
+		agentID := strings.ToLower(entry.Name)
+		a := g.agentRegistry.Get(agentID)
+		if a == nil {
+			continue
+		}
+		if missing := a.MissingTools(); len(missing) > 0 {
+			g.logger.Error().
+				Str("agent", agentID).
+				Strs("missing_tools", missing).
+				Msg("Agent has tools not present in registry")
+		} else {
+			g.logger.Info().
+				Str("agent", agentID).
+				Msg("All configured tools are available")
 		}
 	}
 
-	t := g.config.Tools
-	register(t.Web.Enabled, "web", "Web search stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"query": map[string]interface{}{"type": "string"}}})
-	register(t.Exec.Enabled, "exec", "Shell command execution stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"command": map[string]interface{}{"type": "string"}}})
-	register(t.Filesystem.Enabled, "filesystem", "Filesystem operations stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}, "operation": map[string]interface{}{"type": "string"}}})
-	register(t.Spawn.Enabled, "spawn", "Subprocess spawning stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"cmd": map[string]interface{}{"type": "string"}}})
-	register(t.Subagent.Enabled, "subagent", "Sub‑agent invocation stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"agent": map[string]interface{}{"type": "string"}, "task": map[string]interface{}{"type": "string"}}})
-	register(t.Cron.Enabled, "cron", "Cron job stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"schedule": map[string]interface{}{"type": "string"}, "command": map[string]interface{}{"type": "string"}}})
-	register(t.Message.Enabled, "message", "Messaging stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"target": map[string]interface{}{"type": "string"}, "text": map[string]interface{}{"type": "string"}}})
-	register(t.ReadFile.Enabled, "read_file", "Read file stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}}})
-	register(t.WriteFile.Enabled, "write_file", "Write file stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}, "content": map[string]interface{}{"type": "string"}}})
-	register(t.ListDir.Enabled, "list_dir", "List directory stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}}})
-	register(t.EditFile.Enabled, "edit_file", "Edit file stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}, "changes": map[string]interface{}{"type": "string"}}})
-	register(t.AppendFile.Enabled, "append_file", "Append to file stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}, "content": map[string]interface{}{"type": "string"}}})
-	register(t.WebFetch.Enabled, "web_fetch", "Fetch URL stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"url": map[string]interface{}{"type": "string"}}})
-	register(t.SendFile.Enabled, "send_file", "Send file stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}}})
-	register(t.SendTTS.Enabled, "send_tts", "TTS stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"text": map[string]interface{}{"type": "string"}}})
-	register(t.LoadImage.Enabled, "load_image", "Load image stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}}})
-	register(t.FindSkills.Enabled, "find_skills", "Find skills stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"query": map[string]interface{}{"type": "string"}}})
-	register(t.InstallSkill.Enabled, "install_skill", "Install skill stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"skill": map[string]interface{}{"type": "string"}}})
-	register(t.Skills.Enabled, "skills", "Skills management stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"action": map[string]interface{}{"type": "string"}}})
-	register(t.MCP.Enabled, "mcp", "MCP stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"name": map[string]interface{}{"type": "string"}}})
-	register(t.MediaCleanup.Enabled, "media_cleanup", "Media cleanup stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"path": map[string]interface{}{"type": "string"}}})
-	register(t.I2C.Enabled, "i2c", "I2C stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"address": map[string]interface{}{"type": "string"}}})
-	register(t.Serial.Enabled, "serial", "Serial port stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"port": map[string]interface{}{"type": "string"}}})
-	register(t.SPI.Enabled, "spi", "SPI stub", map[string]interface{}{"type": "object", "properties": map[string]interface{}{"device": map[string]interface{}{"type": "string"}}})
+	return nil
 }
 
-// stubTool implements tools.Tool
-func (s *stubTool) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
-	return fmt.Sprintf("[%s stub] called with params: %v", s.name, params), nil
+// registerConfiguredTools registers real implementations for the newly added tools
+// and stub implementations for all other enabled tools that do not yet have a real
+// counterpart. This prevents "tool not found" errors when the LLM requests a tool.
+// The baseWorkspace parameter is used by tools that need filesystem access (memory, file_search).
+func (g *Gateway) registerConfiguredTools(toolReg *tools.Registry, baseWorkspace string) {
+	t := g.config.Tools
+
+	// Real implementations for the newly implemented tools
+	if t.DateTime.Enabled {
+		toolReg.Register("date_time", &tools.DateTimeTool{})
+	}
+	if t.Memory.Enabled {
+		memoryFile := filepath.Join(baseWorkspace, "memory", "global.json")
+		toolReg.Register("memory", tools.NewMemoryTool(memoryFile))
+	}
+	if t.WebSearch.Enabled {
+		toolReg.Register("web_search", &tools.WebSearchTool{})
+	}
+	if t.HTTPRequest.Enabled {
+		toolReg.Register("http_request", &tools.HTTPRequestTool{})
+	}
+	if t.FileSearch.Enabled {
+		toolReg.Register("file_search", tools.NewFileSearchTool(baseWorkspace))
+	}
+	if t.Weather.Enabled {
+		toolReg.Register("weather", &tools.WeatherTool{})
+	}
+	if t.Calculator.Enabled {
+		toolReg.Register("calculator", &tools.CalculatorTool{})
+	}
+	if t.SystemInfo.Enabled {
+		toolReg.Register("system_info", &tools.SystemInfoTool{})
+	}
+
+	// Stub tools for other enabled tools (not yet fully implemented)
+	stubTools := []struct {
+		enabled bool
+		name    string
+	}{
+		{t.Web.Enabled, "web"},
+		{t.Exec.Enabled, "exec"},
+		{t.Filesystem.Enabled, "filesystem"},
+		{t.Spawn.Enabled, "spawn"},
+		{t.Subagent.Enabled, "subagent"},
+		{t.Cron.Enabled, "cron"},
+		{t.Message.Enabled, "message"},
+		{t.ReadFile.Enabled, "read_file"},
+		{t.WriteFile.Enabled, "write_file"},
+		{t.ListDir.Enabled, "list_dir"},
+		{t.EditFile.Enabled, "edit_file"},
+		{t.AppendFile.Enabled, "append_file"},
+		{t.WebFetch.Enabled, "web_fetch"},
+		{t.SendFile.Enabled, "send_file"},
+		{t.SendTTS.Enabled, "send_tts"},
+		{t.LoadImage.Enabled, "load_image"},
+		{t.FindSkills.Enabled, "find_skills"},
+		{t.InstallSkill.Enabled, "install_skill"},
+		{t.Skills.Enabled, "skills"},
+		{t.MCP.Enabled, "mcp"},
+		{t.MediaCleanup.Enabled, "media_cleanup"},
+		{t.I2C.Enabled, "i2c"},
+		{t.Serial.Enabled, "serial"},
+		{t.SPI.Enabled, "spi"},
+	}
+	for _, s := range stubTools {
+		if s.enabled {
+			toolReg.Register(s.name, &stubTool{name: s.name})
+			g.logger.Debug().Str("tool", s.name).Msg("Registered stub tool")
+		}
+	}
+
+	// Log the final list of all registered tools
+	g.logger.Info().Strs("registered_tools", toolReg.List()).Msg("Global tool registry initialised")
 }
+
+// stubTool is a placeholder tool that returns a message indicating it is not yet implemented.
+// It satisfies the tools.Tool interface and exists solely to prevent errors when the LLM
+// requests a tool that has not been fully implemented.
+type stubTool struct {
+	name string
+}
+
+func (s *stubTool) Execute(ctx context.Context, params map[string]interface{}) (interface{}, error) {
+	return fmt.Sprintf("Tool '%s' is not implemented yet.", s.name), nil
+}
+
 func (s *stubTool) Describe() llm.ToolDef {
 	return llm.ToolDef{
 		Name:        s.name,
-		Description: s.description,
-		Parameters:  s.params,
+		Description: fmt.Sprintf("Stub for %s (not implemented).", s.name),
+		Parameters:  map[string]interface{}{"type": "object", "properties": map[string]interface{}{}},
 	}
+}
+
+// appendIfMissing adds an item to a string slice only if it is not already present.
+func appendIfMissing(slice []string, item string) []string {
+	for _, s := range slice {
+		if s == item {
+			return slice
+		}
+	}
+	return append(slice, item)
 }
 
 // ProcessMessage routes a user message to the specified agent and returns the agent's reply.

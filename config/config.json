@@ -80,7 +80,7 @@
     "host": "localhost",
     "port": 18790,
     "hot_reload": false,
-    "log_level": "info"
+    "log_level": "debug"
   },
   "events": {
     "logging": {
